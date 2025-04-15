@@ -1,0 +1,22 @@
+{
+  "name": "bottin-des-artistes",
+  "env": {
+    "NODE_ENV": {
+      "description": "Environment for the application",
+      "value": "production"
+    },
+    "DATABASE_URL": {
+      "description": "Connection string for your Supabase PostgreSQL database",
+      "required": true
+    },
+    "SESSION_SECRET": {
+      "description": "Secret for Express sessions",
+      "generator": "secret"
+    }
+  },
+  "buildpacks": [
+    {
+      "url": "heroku/nodejs"
+    }
+  ]
+}

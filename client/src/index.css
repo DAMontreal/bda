@@ -1,0 +1,58 @@
+/* Import Roboto font */
+@import url('https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Import Metropolis font */
+@font-face {
+  font-family: 'Metropolis';
+  src: url('https://cdn.jsdelivr.net/gh/ncolemaerosales/metropolis-typeface/Fonts/Webfonts/WOFF2/Metropolis-Regular.woff2') format('woff2'),
+       url('https://cdn.jsdelivr.net/gh/ncolemaerosales/metropolis-typeface/Fonts/Webfonts/WOFF/Metropolis-Regular.woff') format('woff');
+  font-weight: normal;
+  font-style: normal;
+}
+
+@font-face {
+  font-family: 'Metropolis';
+  src: url('https://cdn.jsdelivr.net/gh/ncolemaerosales/metropolis-typeface/Fonts/Webfonts/WOFF2/Metropolis-Bold.woff2') format('woff2'),
+       url('https://cdn.jsdelivr.net/gh/ncolemaerosales/metropolis-typeface/Fonts/Webfonts/WOFF/Metropolis-Bold.woff') format('woff');
+  font-weight: bold;
+  font-style: normal;
+}
+
+@layer base {
+  :root {
+    --orange: #F89720;
+    --black: #2F2D2B;
+    --grey: #F6F3F1;
+  }
+
+  * {
+    @apply border-border;
+  }
+
+  body {
+    font-family: 'Roboto', sans-serif;
+    @apply antialiased bg-background text-foreground;
+    color: var(--black);
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    font-family: 'Metropolis', sans-serif;
+    font-weight: bold;
+  }
+}
+
+@layer components {
+  .btn-primary {
+    background-color: var(--orange);
+    color: white;
+  }
+
+  .btn-secondary {
+    background-color: var(--grey);
+    color: var(--black);
+  }
+}
