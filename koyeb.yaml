@@ -20,9 +20,9 @@ service:
       port: 5000
   healthchecks:
     path: /health
-    port: 5000
-    initial_delay: 30s
+    port: 8000
+    initial_delay: 60s
     interval: 15s
-    timeout: 5s
+    timeout: 10s
     success_threshold: 1
     failure_threshold: 3
