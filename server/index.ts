@@ -68,3 +68,12 @@ app.use((req, res, next) => {
     log(`serving on port ${port}`);
   });
 })();
+
+// Ajouter ceci avant que l'application commence à écouter
+app.use((err, req, res, next) => {
+  console.error("Erreur non gérée:", err);
+  res.status(500).json({ 
+    message: "Une erreur est survenue", 
+    error: process.env.NODE_ENV === 'development' ? err.message : undefined 
+  });
+});
