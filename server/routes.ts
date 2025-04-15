@@ -4,6 +4,8 @@ import { storage } from "./storage";
 import session from "express-session";
 import { v4 as uuidv4 } from "uuid";
 import { z } from "zod";
+import connectPg from "connect-pg-simple";
+import { pool } from "./db";
 import { 
   insertUserSchema, 
   insertProfileMediaSchema, 
@@ -20,13 +22,25 @@ declare module "express-session" {
 }
 
 export async function registerRoutes(app: Express): Promise<Server> {
-  // Session setup
+  // Session setup avec PostgreSQL store quand on est en production
+  const PostgreSqlStore = connectPg(session);
+  
   app.use(
     session({
+      store: process.env.NODE_ENV === "production" 
+        ? new PostgreSqlStore({
+            pool,
+            tableName: 'sessions',
+            createTableIfMissing: true,
+          }) 
+        : undefined,
       secret: process.env.SESSION_SECRET || "bottin-dam-secret",
       resave: false,
       saveUninitialized: false,
-      cookie: { secure: process.env.NODE_ENV === "production", maxAge: 7 * 24 * 60 * 60 * 1000 }, // 7 days
+      cookie: { 
+        secure: process.env.NODE_ENV === "production", 
+        maxAge: 7 * 24 * 60 * 60 * 1000  // 7 days
+      },
       name: "dam_session",
     })
   );
