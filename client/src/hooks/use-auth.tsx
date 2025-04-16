@@ -23,17 +23,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const { toast } = useToast();
   const [, navigate] = useLocation();
 
-  const { data: user, isLoading } = useQuery({
+  const { data: user, isLoading } = useQuery<User | null>({
     queryKey: ["/api/auth/me"],
-    onSuccess: (data) => {
-      if (data) {
-        setIsAuthenticated(true);
-      }
-    },
-    onError: () => {
+    retry: false
+  });
+
+  useEffect(() => {
+    if (user) {
+      setIsAuthenticated(true);
+    } else if (!isLoading) {
       setIsAuthenticated(false);
     }
-  });
+  }, [user, isLoading]);
 
   const loginMutation = useMutation({
     mutationFn: async (credentials: { username: string; password: string }) => {
