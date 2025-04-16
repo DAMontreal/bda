@@ -62,15 +62,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return apiRequest("POST", "/api/auth/logout", {});
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/auth/me"] });
+      queryClient.resetQueries({ queryKey: ["/api/auth/me"] });
+      queryClient.setQueryData(["/api/auth/me"], null);
       setIsAuthenticated(false);
       toast({
         title: "Déconnexion réussie",
         description: "À bientôt !",
       });
-      navigate("/");
+      // Force reload pour éviter les problèmes de cache
+      setTimeout(() => {
+        window.location.href = "/";
+      }, 100);
     },
-    onError: () => {
+    onError: (error) => {
+      console.error("Erreur de déconnexion:", error);
       toast({
         variant: "destructive",
         title: "Erreur",
