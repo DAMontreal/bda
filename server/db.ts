@@ -3,85 +3,86 @@ import { drizzle } from 'drizzle-orm/neon-serverless';
 import ws from "ws";
 import * as schema from "@shared/schema";
 
+// Configuration pour Neon Serverless
 neonConfig.webSocketConstructor = ws;
 
-console.log("Environnement:", process.env.NODE_ENV);
+// Log d'information sur l'environnement
+console.log("Environnement:", process.env.NODE_ENV || "development");
 console.log("DATABASE_URL défini:", !!process.env.DATABASE_URL);
 
-// Fonction de création de pool avec réessais
-const createPoolWithRetry = (retries = 5, delay = 3000) => {
-  if (!process.env.DATABASE_URL) {
-    throw new Error("DATABASE_URL must be set. Did you forget to provision a database?");
-  }
+// Vérification de la présence de l'URL de connexion
+if (!process.env.DATABASE_URL) {
+  throw new Error("DATABASE_URL must be set. Did you forget to provision a database?");
+}
 
-  let attempt = 0;
-  
-  const tryConnect = () => {
-    attempt++;
-    console.log(`Tentative de connexion à la base de données (${attempt}/${retries})...`);
-    
-    try {
-      const pool = new Pool({ 
-        connectionString: process.env.DATABASE_URL,
-        connectionTimeoutMillis: 10000  // 10 secondes de timeout
-      });
-      
-      return pool;
-    } catch (error) {
-      console.error(`Erreur de connexion (tentative ${attempt}):`, error);
-      
-      if (attempt >= retries) {
-        console.error("Nombre maximum de tentatives atteint. Abandon.");
-        throw error;
-      }
-      
-      console.log(`Nouvelle tentative dans ${delay/1000} secondes...`);
-      // En production, on attend et on réessaie
-      if (process.env.NODE_ENV === 'production') {
-        setTimeout(tryConnect, delay);
-      } else {
-        throw error;
-      }
-    }
-  };
-  
-  return tryConnect();
-};
-
-// Initialiser le pool et la connexion DB avec gestion d'erreur
-let pool, db;
+let pool: Pool | any;
+let db: ReturnType<typeof drizzle> | any;
 
 try {
-  pool = createPoolWithRetry();
+  console.log("Tentative de connexion à la base de données...");
+  
+  // Initialisation du pool avec les timeouts
+  pool = new Pool({ 
+    connectionString: process.env.DATABASE_URL,
+    connectionTimeoutMillis: 30000, // 30 secondes de timeout
+    idleTimeoutMillis: 60000,      // 1 minute d'inactivité max
+    max: 20                        // Nombre max de clients dans le pool
+  });
+  
+  // Initialisation de Drizzle ORM
   db = drizzle({ client: pool, schema });
   
-  // Test de connexion
+  console.log("Connexion à la base de données établie avec succès");
+  
+  // Vérification de la connexion
   pool.query('SELECT 1')
-    .then(() => console.log("Connexion à la base de données vérifiée et fonctionnelle"))
-    .catch(err => console.error("Erreur lors du test de la base de données:", err));
+    .then(() => console.log("Test de connexion réussi"))
+    .catch((err: Error) => {
+      console.error("Erreur lors du test de connexion:", err);
+      
+      // En production, on tente de se reconnecter
+      if (process.env.NODE_ENV === 'production') {
+        console.log("Tentative de reconnexion...");
+        setTimeout(() => {
+          pool.query('SELECT 1')
+            .then(() => console.log("Reconnexion réussie"))
+            .catch((err: Error) => console.error("Échec de la reconnexion:", err));
+        }, 5000);
+      }
+    });
+  
+  // Gestion des événements du pool
+  pool.on('error', (err: Error) => {
+    console.error('Erreur inattendue du pool de connexion:', err);
+    
+    // En production, ne pas crash le serveur
+    if (process.env.NODE_ENV !== 'production') {
+      throw err;
+    }
+  });
   
 } catch (error) {
-  console.error("Erreur critique lors de l'initialisation de la base de données:", error);
+  console.error("ERREUR CRITIQUE lors de l'initialisation de la base de données:", error);
   
-  // En développement, on échoue rapidement
   if (process.env.NODE_ENV !== 'production') {
+    // En développement, on fail fast
     throw error;
+  } else {
+    // En production, on crée des objets qui vont logger les erreurs
+    // mais ne vont pas faire crash l'application
+    console.warn("Création d'objets de remplacement pour la production");
+    
+    // Mock pool qui renvoie des erreurs contrôlées
+    pool = {
+      query: () => Promise.reject(new Error("Database connection failed")),
+      connect: () => Promise.reject(new Error("Database connection failed")),
+      on: () => {},
+      end: () => Promise.resolve()
+    } as unknown as Pool;
+    
+    // Mock Drizzle qui renvoie des erreurs contrôlées
+    db = drizzle({ client: pool, schema });
   }
-  
-  // En production, on crée un objet de remplacement pour éviter les crashs
-  console.warn("Création d'un objet de remplacement pour éviter les crashs en production");
-  const mockPool = {
-    query: () => Promise.reject(new Error("Database connection failed")),
-    connect: () => Promise.reject(new Error("Database connection failed"))
-  };
-  
-  pool = mockPool;
-  db = {
-    select: () => ({ from: () => ({ where: () => Promise.reject(new Error("Database connection failed")) }) }),
-    insert: () => ({ values: () => ({ returning: () => Promise.reject(new Error("Database connection failed")) }) }),
-    update: () => ({ set: () => ({ where: () => ({ returning: () => Promise.reject(new Error("Database connection failed")) }) }) }),
-    delete: () => ({ where: () => ({ returning: () => Promise.reject(new Error("Database connection failed")) }) })
-  };
 }
 
 export { pool, db };

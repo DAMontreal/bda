@@ -1,8 +1,11 @@
 import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
+import { createServer } from "http";
 
 const app = express();
+// Créer un second serveur pour les vérifications de santé sur le port 8000
+const healthApp = express();
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 
@@ -39,12 +42,35 @@ app.use((req, res, next) => {
 (async () => {
   const server = await registerRoutes(app);
 
+  // Gestionnaire d'erreur global amélioré
   app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
+    // Log détaillé de l'erreur
+    console.error("ERREUR NON GÉRÉE:", err);
+    console.error("Stack trace:", err.stack);
+    
+    // Statut HTTP à utiliser
     const status = err.status || err.statusCode || 500;
+    
+    // Message d'erreur à afficher
     const message = err.message || "Internal Server Error";
-
-    res.status(status).json({ message });
-    throw err;
+    
+    // En production, on n'inclut pas les détails techniques dans la réponse
+    const responseBody = {
+      message,
+      // Inclure les détails techniques seulement en développement
+      ...(process.env.NODE_ENV !== 'production' && { 
+        error: err.toString(),
+        stack: err.stack
+      })
+    };
+    
+    // Envoyer la réponse
+    res.status(status).json(responseBody);
+    
+    // En dev, on propage l'erreur pour avoir un crash complet
+    if (process.env.NODE_ENV !== 'production') {
+      throw err;
+    }
   });
 
   // importantly only setup vite in development and after
@@ -67,13 +93,18 @@ app.use((req, res, next) => {
   }, () => {
     log(`serving on port ${port}`);
   });
-})();
 
-// Ajouter ceci avant que l'application commence à écouter
-app.use((err, req, res, next) => {
-  console.error("Erreur non gérée:", err);
-  res.status(500).json({ 
-    message: "Une erreur est survenue", 
-    error: process.env.NODE_ENV === 'development' ? err.message : undefined 
+  // Configuration du serveur de santé sur le port 8000
+  // Configuration des routes de santé
+  healthApp.get('/health', (req, res) => {
+    res.status(200).send('OK');
   });
-});
+
+  // Créer et démarrer le serveur HTTP de santé sur le port 8000
+  if (process.env.NODE_ENV === 'production') {
+    const healthServer = createServer(healthApp);
+    healthServer.listen(8000, '0.0.0.0', () => {
+      log('Health check server running on port 8000');
+    });
+  }
+})();

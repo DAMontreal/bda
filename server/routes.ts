@@ -22,28 +22,60 @@ declare module "express-session" {
 }
 
 export async function registerRoutes(app: Express): Promise<Server> {
-  // Session setup avec PostgreSQL store quand on est en production
-  const PostgreSqlStore = connectPg(session);
+  // Configuration des sessions avec une gestion robuste des erreurs
+  console.log("Configuration des sessions...");
   
-  app.use(
-    session({
-      store: process.env.NODE_ENV === "production" 
-        ? new PostgreSqlStore({
-            pool,
-            tableName: 'sessions',
-            createTableIfMissing: true,
-          }) 
-        : undefined,
-      secret: process.env.SESSION_SECRET || "bottin-dam-secret",
-      resave: false,
-      saveUninitialized: false,
-      cookie: { 
-        secure: process.env.NODE_ENV === "production", 
-        maxAge: 7 * 24 * 60 * 60 * 1000  // 7 days
-      },
-      name: "dam_session",
-    })
-  );
+  let sessionConfig: session.SessionOptions = {
+    // Secret de session (utiliser une variable d'environnement en production)
+    secret: process.env.SESSION_SECRET || "bottin-dam-secret-dev-only",
+    
+    // Options de cookie
+    cookie: { 
+      secure: process.env.NODE_ENV === "production", 
+      maxAge: 7 * 24 * 60 * 60 * 1000,  // 7 jours
+      sameSite: 'lax',                  // Protection CSRF basique
+      path: '/',
+    },
+    
+    // Autres options
+    resave: false,
+    saveUninitialized: false,
+    name: "dam_session",
+    
+    // Par défaut, pas de store (utilise MemoryStore)
+    store: undefined,
+  };
+  
+  // En production, on utilise PostgreSQL pour le stockage des sessions
+  if (process.env.NODE_ENV === "production") {
+    try {
+      console.log("Initialisation du stockage PostgreSQL pour les sessions...");
+      const PostgreSqlStore = connectPg(session);
+      
+      sessionConfig.store = new PostgreSqlStore({
+        pool,
+        tableName: 'sessions',
+        createTableIfMissing: true,
+        pruneSessionInterval: 60, // Nettoyer les sessions expirées toutes les 60 secondes
+      });
+      
+      console.log("Stockage PostgreSQL pour les sessions configuré avec succès");
+    } catch (error) {
+      console.error("ERREUR lors de l'initialisation du stockage PostgreSQL des sessions:", error);
+      console.warn("⚠️ Utilisation du stockage mémoire pour les sessions - NON RECOMMANDÉ EN PRODUCTION");
+      
+      // On reste avec MemoryStore par défaut, mais on log un avertissement
+      if (process.env.NODE_ENV === "production") {
+        console.warn("⚠️ AVERTISSEMENT: L'application utilise MemoryStore en production!");
+        console.warn("⚠️ Cela peut causer des fuites de mémoire et des pertes de sessions lors des redémarrages.");
+      }
+    }
+  } else {
+    console.log("Mode développement: utilisation du stockage mémoire pour les sessions");
+  }
+  
+  // Appliquer la configuration des sessions
+  app.use(session(sessionConfig));
 
   // Auth middleware
   const requireAuth = (req: Request, res: Response, next: Function) => {
@@ -84,10 +116,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       res.status(201).json(userWithoutPassword);
     } catch (error) {
+      console.error("Registration error:", error);
       if (error instanceof z.ZodError) {
         return res.status(400).json({ message: "Invalid input", errors: error.errors });
       }
-      res.status(500).json({ message: "Internal server error" });
+      res.status(500).json({ 
+        message: "Internal server error", 
+        error: error instanceof Error ? error.message : String(error) 
+      });
     }
   });
 
