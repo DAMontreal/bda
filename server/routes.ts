@@ -31,7 +31,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     
     // Options de cookie
     cookie: { 
-      secure: process.env.NODE_ENV === "production", 
+      secure: process.env.COOKIE_SECURE === "true",  // Dépend du proxy et HTTPS
       maxAge: 7 * 24 * 60 * 60 * 1000,  // 7 jours
       sameSite: 'lax',                  // Protection CSRF basique
       path: '/',
@@ -91,6 +91,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
     next();
   };
+
+  // Ajouter une route pour vérifier la configuration de session
+  app.get("/api/health-check/session", (req, res) => {
+    res.json({
+      cookie: {
+        secure: sessionConfig.cookie?.secure,
+        sameSite: sessionConfig.cookie?.sameSite,
+      },
+      env: process.env.NODE_ENV,
+      cookieSecureEnv: process.env.COOKIE_SECURE
+    });
+  });
 
   // Auth routes
   app.post("/api/auth/register", async (req, res) => {
