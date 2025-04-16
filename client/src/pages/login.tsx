@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -21,10 +22,12 @@ const Login = () => {
   const [, navigate] = useLocation();
   const { isAuthenticated, login } = useAuth();
 
-  // Redirect if already authenticated
-  if (isAuthenticated) {
-    navigate("/dashboard");
-  }
+  // Redirect if already authenticated (via useEffect to avoid render-time navigation)
+  useEffect(() => {
+    if (isAuthenticated) {
+      navigate("/dashboard");
+    }
+  }, [isAuthenticated, navigate]);
 
   const form = useForm<LoginFormValues>({
     resolver: zodResolver(loginSchema),
