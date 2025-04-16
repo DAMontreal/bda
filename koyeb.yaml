@@ -15,6 +15,8 @@ service:
       value: ${DATABASE_URL}
     - key: SESSION_SECRET
       value: ${SESSION_SECRET}
+    - key: COOKIE_SECURE
+      value: "false"
   routes:
     - path: /
       port: 5000
