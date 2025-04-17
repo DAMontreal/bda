@@ -22,34 +22,40 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
   const { toast } = useToast();
   const [, navigate] = useLocation();
+  const [user, setUser] = useState<User | null>(null);
+  const [isLoading, setIsLoading] = useState<boolean>(true);
 
-  const { data: user, isLoading } = useQuery<User | null>({
-    queryKey: ["/api/auth/me"],
-    retry: false,
-    staleTime: 0,
-    refetchOnMount: true,
-    queryFn: async ({ queryKey }) => {
+  // Vérifier l'état d'authentification au chargement
+  useEffect(() => {
+    async function checkAuthStatus() {
       try {
-        const res = await fetch(queryKey[0] as string, {
+        const res = await fetch("/api/auth/me", {
           credentials: "include",
         });
         
-        // Si non authentifié, retourner null au lieu de lever une exception
         if (res.status === 401) {
-          return null;
+          setUser(null);
+          setIsAuthenticated(false);
+        } else if (res.ok) {
+          const userData = await res.json();
+          setUser(userData);
+          setIsAuthenticated(true);
+        } else {
+          console.error(`Erreur de requête: ${res.status}`);
+          setUser(null);
+          setIsAuthenticated(false);
         }
-        
-        if (!res.ok) {
-          throw new Error(`Erreur de requête: ${res.status}`);
-        }
-        
-        return await res.json();
       } catch (error) {
         console.error("Erreur lors de la récupération des données d'authentification:", error);
-        return null;
+        setUser(null);
+        setIsAuthenticated(false);
+      } finally {
+        setIsLoading(false);
       }
     }
-  });
+    
+    checkAuthStatus();
+  }, []);
 
   useEffect(() => {
     if (user) {
@@ -63,11 +69,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     mutationFn: async (credentials: { username: string; password: string }) => {
       const response = await apiRequest("POST", "/api/auth/login", credentials);
       const userData = await response.json();
-      // Définir manuellement les données de l'utilisateur pour éviter les problèmes de cache
-      queryClient.setQueryData(["/api/auth/me"], userData);
       return userData;
     },
     onSuccess: (userData) => {
+      // Mettre à jour l'état localement
+      setUser(userData);
       setIsAuthenticated(true);
       toast({
         title: "Connexion réussie",
@@ -89,8 +95,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return apiRequest("POST", "/api/auth/logout", {});
     },
     onSuccess: () => {
-      queryClient.resetQueries({ queryKey: ["/api/auth/me"] });
-      queryClient.setQueryData(["/api/auth/me"], null);
+      // Mettre à jour l'état localement
+      setUser(null);
       setIsAuthenticated(false);
       toast({
         title: "Déconnexion réussie",
