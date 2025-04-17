@@ -24,14 +24,6 @@ declare module "express-session" {
 export async function registerRoutes(app: Express): Promise<Server> {
   // Configuration des sessions avec une gestion robuste des erreurs
   console.log("Configuration des sessions...");
-  console.log("Environnement:", process.env.NODE_ENV || "non défini");
-  
-  const isProduction = process.env.NODE_ENV === "production";
-  
-  // Assurons-nous que nous déterminons correctement proxy/secure
-  const isHTTPS = process.env.HTTPS === "true";
-  const behindProxy = process.env.BEHIND_PROXY === "true";
-  console.log(`HTTPS: ${isHTTPS}, Behind Proxy: ${behindProxy}`);
   
   let sessionConfig: session.SessionOptions = {
     // Secret de session (utiliser une variable d'environnement en production)
@@ -39,10 +31,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
     
     // Options de cookie
     cookie: { 
-      // En production, cela doit être true si derrière un proxy HTTPS
-      secure: isProduction ? (process.env.COOKIE_SECURE !== "false") : false,
+      secure: process.env.COOKIE_SECURE === "true",  // Dépend du proxy et HTTPS
       maxAge: 7 * 24 * 60 * 60 * 1000,  // 7 jours
-      sameSite: isProduction ? 'none' : 'lax',
+      sameSite: 'lax',                  // Protection CSRF basique
       path: '/',
     },
     
@@ -54,12 +45,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
     // Par défaut, pas de store (utilise MemoryStore)
     store: undefined,
   };
-  
-  // Si nous sommes derrière un proxy en production, nous devons faire confiance au proxy
-  if (isProduction && behindProxy) {
-    app.set('trust proxy', 1);
-    console.log("Proxy trust activé pour les sessions");
-  }
   
   // En production, on utilise PostgreSQL pour le stockage des sessions
   if (process.env.NODE_ENV === "production") {
@@ -185,8 +170,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(401).json({ message: "Invalid credentials" });
       }
       
-      // Les comptes admins peuvent se connecter même sans approbation
-      if (!user.isApproved && !user.isAdmin) {
+      if (!user.isApproved) {
         return res.status(403).json({ message: "Your account is pending approval" });
       }
       
