@@ -6,8 +6,9 @@ import { User } from "@shared/schema";
 import { ArrowRight } from "lucide-react";
 
 const FeaturedArtists = () => {
-  const { data: artists, isLoading } = useQuery<User[]>({
+  const { data: artists, isLoading, isError } = useQuery<User[]>({
     queryKey: ["/api/users?approved=true"],
+    retry: false
   });
 
   // Get only first 4 artists
@@ -38,6 +39,10 @@ const FeaturedArtists = () => {
                 <div className="h-8 bg-gray-200 animate-pulse rounded"></div>
               </div>
             ))}
+          </div>
+        ) : isError ? (
+          <div className="text-center py-12">
+            <p className="text-gray-500 mb-4">Impossible de charger les artistes pour le moment</p>
           </div>
         ) : featuredArtists.length > 0 ? (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8">
