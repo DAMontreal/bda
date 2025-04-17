@@ -7,7 +7,7 @@ import { User, Message } from "@shared/schema";
 import MessageList from "@/components/messages/message-list";
 import Conversation from "@/components/messages/conversation";
 
-interface MessagesProps {}
+
 
 const Messages = () => {
   const { user, isAuthenticated, isLoading: authLoading } = useAuth();
