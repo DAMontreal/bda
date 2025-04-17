@@ -185,7 +185,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(401).json({ message: "Invalid credentials" });
       }
       
-      if (!user.isApproved) {
+      // Les comptes admins peuvent se connecter même sans approbation
+      if (!user.isApproved && !user.isAdmin) {
         return res.status(403).json({ message: "Your account is pending approval" });
       }
       
