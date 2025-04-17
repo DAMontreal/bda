@@ -39,9 +39,7 @@ function Router() {
           <Route path="/register" component={Register} />
           <Route path="/login" component={Login} />
           <Route path="/dashboard" component={Dashboard} />
-          <Route path="/messages">
-            {() => <Messages />}
-          </Route>
+          <Route path="/messages" component={Messages} />
           <Route path="/admin" component={Admin} />
           <Route component={NotFound} />
         </Switch>
