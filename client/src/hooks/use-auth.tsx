@@ -24,7 +24,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [, navigate] = useLocation();
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(true);
-
+  
   // Vérifier l'état d'authentification au chargement
   useEffect(() => {
     async function checkAuthStatus() {
@@ -56,14 +56,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     
     checkAuthStatus();
   }, []);
-
-  useEffect(() => {
-    if (user) {
-      setIsAuthenticated(true);
-    } else if (!isLoading) {
-      setIsAuthenticated(false);
-    }
-  }, [user, isLoading]);
 
   const loginMutation = useMutation({
     mutationFn: async (credentials: { username: string; password: string }) => {
