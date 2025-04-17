@@ -2,8 +2,19 @@ import { QueryClient, QueryFunction } from "@tanstack/react-query";
 
 async function throwIfResNotOk(res: Response) {
   if (!res.ok) {
-    const text = (await res.text()) || res.statusText;
-    throw new Error(`${res.status}: ${text}`);
+    // Pour les réponses 401 non authentifiées, ne pas lancer d'erreur
+    if (res.status === 401) {
+      console.log('Requête non authentifiée (401), pas d\'erreur lancée');
+      return;
+    }
+    
+    try {
+      const data = await res.json();
+      throw new Error(data.message || `${res.status}: ${res.statusText}`);
+    } catch (e) {
+      const text = await res.text().catch(() => res.statusText);
+      throw new Error(`${res.status}: ${text}`);
+    }
   }
 }
 
@@ -44,7 +55,7 @@ export const getQueryFn: <T>(options: {
 export const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
-      queryFn: getQueryFn({ on401: "throw" }),
+      queryFn: getQueryFn({ on401: "returnNull" }),
       refetchInterval: false,
       refetchOnWindowFocus: false,
       staleTime: Infinity,
