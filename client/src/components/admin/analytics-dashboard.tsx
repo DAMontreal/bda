@@ -32,7 +32,7 @@ interface AnalyticsData {
 const COLORS = ['#F89720', '#FAA83C', '#FBBA5D', '#FCCC7D', '#FDDE9E', '#FEEFBE', '#FFF7E6', '#F9A642', '#F7B564', '#F5C486'];
 
 const AnalyticsDashboard = () => {
-  const { data, isLoading, isError } = useQuery<AnalyticsData>({
+  const { data, isLoading, isError, refetch } = useQuery<AnalyticsData>({
     queryKey: ["/api/admin/analytics"],
   });
 

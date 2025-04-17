@@ -16,7 +16,7 @@ const PendingUsers = () => {
   const { toast } = useToast();
 
   // Fetch users pending approval
-  const { data: pendingUsers, isLoading } = useQuery<User[]>({
+  const { data: pendingUsers, isLoading, refetch } = useQuery<User[]>({
     queryKey: ["/api/users?approved=false"],
   });
 
@@ -26,7 +26,11 @@ const PendingUsers = () => {
       return apiRequest("PUT", `/api/users/${userId}`, { isApproved: true });
     },
     onSuccess: () => {
+      // Invalider à la fois la liste générale des utilisateurs et la liste spécifique des utilisateurs en attente
       queryClient.invalidateQueries({ queryKey: ["/api/users"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/users?approved=false"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/users?approved=true"] });
+      
       toast({
         title: "Utilisateur approuvé",
         description: "L'utilisateur a été approuvé avec succès",
@@ -47,7 +51,11 @@ const PendingUsers = () => {
       return apiRequest("DELETE", `/api/users/${userId}`, undefined);
     },
     onSuccess: () => {
+      // Invalider à la fois la liste générale des utilisateurs et la liste spécifique des utilisateurs en attente
       queryClient.invalidateQueries({ queryKey: ["/api/users"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/users?approved=false"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/users?approved=true"] });
+      
       toast({
         title: "Utilisateur rejeté",
         description: "L'utilisateur a été rejeté avec succès",
@@ -70,14 +78,28 @@ const PendingUsers = () => {
   // Handle user approval
   const handleApproveUser = (userId: number) => {
     if (confirm("Êtes-vous sûr de vouloir approuver cet utilisateur?")) {
-      approveUserMutation.mutate(userId);
+      approveUserMutation.mutate(userId, {
+        onSuccess: () => {
+          // Forcer un rafraîchissement de la liste
+          setTimeout(() => {
+            refetch();
+          }, 500);
+        }
+      });
     }
   };
 
   // Handle user rejection
   const handleRejectUser = (userId: number) => {
     if (confirm("Êtes-vous sûr de vouloir rejeter cet utilisateur? Cette action est irréversible.")) {
-      rejectUserMutation.mutate(userId);
+      rejectUserMutation.mutate(userId, {
+        onSuccess: () => {
+          // Forcer un rafraîchissement de la liste
+          setTimeout(() => {
+            refetch();
+          }, 500);
+        }
+      });
     }
   };
 
