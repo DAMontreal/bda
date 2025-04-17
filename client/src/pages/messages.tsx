@@ -1,5 +1,4 @@
 import { useState, useEffect } from "react";
-import { useParams } from "wouter";
 import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/use-auth";
 import { Button } from "@/components/ui/button";
@@ -8,18 +7,11 @@ import { User, Message } from "@shared/schema";
 import MessageList from "@/components/messages/message-list";
 import Conversation from "@/components/messages/conversation";
 
-const Messages = () => {
-  const { userId } = useParams();
-  const { user, isAuthenticated, isLoading: authLoading } = useAuth();
-  const [selectedUserId, setSelectedUserId] = useState<number | null>(
-    userId ? parseInt(userId) : null
-  );
+interface MessagesProps {}
 
-  useEffect(() => {
-    if (userId) {
-      setSelectedUserId(parseInt(userId));
-    }
-  }, [userId]);
+const Messages = () => {
+  const { user, isAuthenticated, isLoading: authLoading } = useAuth();
+  const [selectedUserId, setSelectedUserId] = useState<number | null>(null);
 
   // Fetch all user messages
   const { data: userMessages, isLoading: messagesLoading } = useQuery<Message[]>({
