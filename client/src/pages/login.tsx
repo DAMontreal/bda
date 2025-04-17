@@ -43,7 +43,10 @@ const Login = () => {
   const onSubmit = async (data: LoginFormValues) => {
     try {
       await login(data.username, data.password);
-      // Redirect is handled by the auth provider
+      // Force la navigation après la connexion en cas de problème avec le navigateur automatique
+      setTimeout(() => {
+        window.location.href = "/dashboard";
+      }, 500);
     } catch (error) {
       console.error("Login error:", error);
     }
