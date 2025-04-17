@@ -25,7 +25,30 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const { data: user, isLoading } = useQuery<User | null>({
     queryKey: ["/api/auth/me"],
-    retry: false
+    retry: false,
+    staleTime: 0,
+    refetchOnMount: true,
+    queryFn: async ({ queryKey }) => {
+      try {
+        const res = await fetch(queryKey[0] as string, {
+          credentials: "include",
+        });
+        
+        // Si non authentifié, retourner null au lieu de lever une exception
+        if (res.status === 401) {
+          return null;
+        }
+        
+        if (!res.ok) {
+          throw new Error(`Erreur de requête: ${res.status}`);
+        }
+        
+        return await res.json();
+      } catch (error) {
+        console.error("Erreur lors de la récupération des données d'authentification:", error);
+        return null;
+      }
+    }
   });
 
   useEffect(() => {
@@ -38,10 +61,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const loginMutation = useMutation({
     mutationFn: async (credentials: { username: string; password: string }) => {
-      return apiRequest("POST", "/api/auth/login", credentials);
+      const response = await apiRequest("POST", "/api/auth/login", credentials);
+      const userData = await response.json();
+      // Définir manuellement les données de l'utilisateur pour éviter les problèmes de cache
+      queryClient.setQueryData(["/api/auth/me"], userData);
+      return userData;
     },
-    onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: ["/api/auth/me"] });
+    onSuccess: (userData) => {
       setIsAuthenticated(true);
       toast({
         title: "Connexion réussie",
