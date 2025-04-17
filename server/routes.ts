@@ -52,10 +52,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.log("Initialisation du stockage PostgreSQL pour les sessions...");
       const PostgreSqlStore = connectPg(session);
       
+      // Table SQL pour les sessions PostgreSQL - en accord avec connect-pg-simple
+      const sessionTableSchema = `
+      CREATE TABLE IF NOT EXISTS "session" (
+        "sid" varchar NOT NULL COLLATE "default",
+        "sess" jsonb NOT NULL,
+        "expire" timestamp(6) NOT NULL,
+        CONSTRAINT "session_pkey" PRIMARY KEY ("sid")
+      )`;
+      
+      try {
+        // Créer la table de session si elle n'existe pas
+        await pool.query(sessionTableSchema);
+        console.log("Table de session vérifiée/créée avec succès");
+      } catch (err) {
+        console.error("Erreur lors de la création de la table de session:", err);
+      }
+      
       sessionConfig.store = new PostgreSqlStore({
         pool,
-        tableName: 'sessions',
-        createTableIfMissing: true,
+        tableName: 'session', // Utilise 'session' au lieu de 'sessions'
+        createTableIfMissing: false, // On a déjà créé la table manuellement
         pruneSessionInterval: 60, // Nettoyer les sessions expirées toutes les 60 secondes
       });
       
