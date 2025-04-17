@@ -17,6 +17,10 @@ service:
       value: ${SESSION_SECRET}
     - key: COOKIE_SECURE
       value: "false"
+    - key: BEHIND_PROXY
+      value: "true"
+    - key: HTTPS
+      value: "true"
   routes:
     - path: /
       port: 5000
