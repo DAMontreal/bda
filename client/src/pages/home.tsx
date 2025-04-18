@@ -1,3 +1,4 @@
+console.log("Page d’accueil chargée");
 import { useState, useEffect } from "react";
 import Hero from "@/components/home/hero";
 import SearchSection from "@/components/home/search-section";
