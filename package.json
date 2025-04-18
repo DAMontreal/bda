@@ -5,11 +5,11 @@
   "license": "MIT",
   "scripts": {
     "dev": "NODE_ENV=development tsx server/index.ts",
-"build": "rm -rf dist && vite build && esbuild server/index.ts --platform=node --packages=external --bundle --format=esm --outdir=dist",
+    "build": "rm -rf dist && vite build && esbuild server/index.ts --platform=node --packages=external --bundle --format=esm --outdir=dist",
     "start": "NODE_ENV=production node dist/index.js",
     "check": "tsc",
     "db:push": "drizzle-kit push"
-  }, // Ensure this comma is here before dependencies
+  }, // <<< MAKE SURE THIS COMMA IS PRESENT
   "dependencies": {
     "@hookform/resolvers": "^3.9.1",
     "@jridgewell/trace-mapping": "^0.3.25",
@@ -75,7 +75,7 @@
     "ws": "^8.18.0",
     "zod": "^3.23.8",
     "zod-validation-error": "^3.4.0"
-  },
+  }, // <<< MAKE SURE THIS COMMA IS PRESENT
   "devDependencies": {
     "@replit/vite-plugin-cartographer": "^0.0.11",
     "@replit/vite-plugin-runtime-error-modal": "^0.0.3",
@@ -98,8 +98,8 @@
     "tsx": "^4.19.1",
     "typescript": "5.6.3",
     "vite": "^5.4.14"
-  },
+  }, // <<< MAKE SURE THIS COMMA IS PRESENT
   "optionalDependencies": {
     "bufferutil": "^4.0.8"
-  }
+  } // <<< NO COMMA after the last top-level block
 }
