@@ -1,85 +1,38 @@
-import express, { type Express } from "express";
-import fs from "fs";
-import path from "path";
-import { createServer as createViteServer, createLogger } from "vite";
-import { type Server } from "http";
-import viteConfig from "../vite.config";
-import { nanoid } from "nanoid";
-
-const viteLogger = createLogger();
-
-export function log(message: string, source = "express") {
-  const formattedTime = new Date().toLocaleTimeString("en-US", {
-    hour: "numeric",
-    minute: "2-digit",
-    second: "2-digit",
-    hour12: true,
-  });
-
-  console.log(`${formattedTime} [${source}] ${message}`);
-}
-
-export async function setupVite(app: Express, server: Server) {
-  const serverOptions = {
-    middlewareMode: true,
-    hmr: { server },
-    allowedHosts: true,
-  };
-
-  const vite = await createViteServer({
-    ...viteConfig,
-    configFile: false,
-    customLogger: {
-      ...viteLogger,
-      error: (msg, options) => {
-        viteLogger.error(msg, options);
-        process.exit(1);
-      },
-    },
-    server: serverOptions,
-    appType: "custom",
-  });
-
-  app.use(vite.middlewares);
-  app.use("*", async (req, res, next) => {
-    const url = req.originalUrl;
-
-    try {
-      const clientTemplate = path.resolve(
-        import.meta.dirname,
-        "..",
-        "client",
-        "index.html",
-      );
-
-      // always reload the index.html file from disk incase it changes
-      let template = await fs.promises.readFile(clientTemplate, "utf-8");
-      template = template.replace(
-        `src="/src/main.tsx"`,
-        `src="/src/main.tsx?v=${nanoid()}"`,
-      );
-      const page = await vite.transformIndexHtml(url, template);
-      res.status(200).set({ "Content-Type": "text/html" }).end(page);
-    } catch (e) {
-      vite.ssrFixStacktrace(e as Error);
-      next(e);
-    }
-  });
-}
-
 export function serveStatic(app: Express) {
-  const distPath = path.resolve(import.meta.dirname, "public");
+  // Calculate the correct path to the CLIENT'S build output directory
+  // Goes up one level from server's dist (__dirname -> /workspace/dist), then into client/dist
+  // ASSUMES client builds to 'dist'. Change 'dist' below if client/vite.config.ts uses a different build.outDir
+  const clientBuildPath = path.resolve(import.meta.dirname, "..", "client", "dist");
 
-  if (!fs.existsSync(distPath)) {
-    throw new Error(
-      `Could not find the build directory: ${distPath}, make sure to build the client first`,
-    );
+  // Check if the calculated client build path exists
+  if (!fs.existsSync(clientBuildPath)) {
+    // Provide a more informative error message
+    console.error(`ERROR: Client build directory not found at: ${clientBuildPath}`);
+    console.error(`Current directory (__dirname inside running script): ${import.meta.dirname}`);
+    console.error("Make sure the client is built correctly and its output directory ('dist' by default) is included in the deployment.");
+    // Optionally throw an error to halt startup, or serve a minimal error page
+    throw new Error(`Client build directory not found: ${clientBuildPath}`);
+    /* Or alternatively, serve an error page:
+    app.use("*", (_req, res) => {
+      res.status(500).send("Server configuration error: Client build not found.");
+    });
+    return;
+    */
   }
 
-  app.use(express.static(distPath));
+  log(`Serving static files from: ${clientBuildPath}`);
 
-  // fall through to index.html if the file doesn't exist
+  // Serve static assets (JS, CSS, images) from the client build directory
+  app.use(express.static(clientBuildPath));
+
+  // Fallback for SPA routing: serve the client's index.html for any unknown routes
   app.use("*", (_req, res) => {
-    res.sendFile(path.resolve(distPath, "index.html"));
+    const indexPath = path.resolve(clientBuildPath, "index.html");
+    res.sendFile(indexPath, (err) => {
+      if (err) {
+        console.error(`Error sending index.html from ${indexPath}:`, err);
+        res.status(500).send("Error loading application.");
+      }
+    });
   });
 }
