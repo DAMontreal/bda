@@ -72,20 +72,19 @@ export async function setupVite(app: Express, server: Server) {
   });
 }
 
-// --- This is the corrected serveStatic function ---
+// --- MODIFIED serveStatic function ---
 export function serveStatic(app: Express) {
-  // Calculate the correct path to the CLIENT'S build output directory
-  // Goes up one level from server's dist (__dirname -> /workspace/dist), then into client/dist
-  // ASSUMES client builds to 'dist'. Change 'dist' below if client/vite.config.ts uses a different build.outDir
-  const clientBuildPath = path.resolve(import.meta.dirname, "..", "client", "dist");
+  // Calculate the correct path to the client build output which is inside dist/public
+  // import.meta.dirname is /workspace/dist, so we need dist/public relative to that
+  const clientBuildPath = path.resolve(import.meta.dirname, "public"); // CORRECTED PATH
 
   // Check if the calculated client build path exists
   if (!fs.existsSync(clientBuildPath)) {
     // Provide a more informative error message
     console.error(`ERROR: Client build directory not found at: ${clientBuildPath}`);
-    // import.meta.dirname should be available in ES modules. If error persists, replace with __dirname if using CommonJS context, but ESM is expected here.
     console.error(`Current directory (import.meta.dirname inside running script): ${import.meta.dirname}`);
-    console.error("Make sure the client is built correctly and its output directory ('dist' by default) is included in the deployment.");
+    // Updated context in error message
+    console.error("Make sure the client is built correctly (vite build) and its output directory ('dist/public') is included in the deployment.");
     // Optionally throw an error to halt startup, or serve a minimal error page
     throw new Error(`Client build directory not found: ${clientBuildPath}`);
     /* Or alternatively, serve an error page:
@@ -112,6 +111,8 @@ export function serveStatic(app: Express) {
     });
   });
 }
+// --- End of MODIFIED serveStatic function ---
+
 
 // --- Ensure path and fs imports are at the top ---
 // (These should already be there based on previous snippets, but double-check)
