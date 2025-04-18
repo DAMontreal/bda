@@ -72,46 +72,88 @@ export async function setupVite(app: Express, server: Server) {
   });
 }
 
-// --- MODIFIED serveStatic function ---
+// --- START OF MODIFIED serveStatic function with Enhanced Logging ---
 export function serveStatic(app: Express) {
-  // Calculate the correct path to the client build output which is inside dist/public
-  // import.meta.dirname is /workspace/dist, so we need dist/public relative to that
-  const clientBuildPath = path.resolve(import.meta.dirname, "public"); // CORRECTED PATH
+  // Use import.meta.dirname if available in ESM context, otherwise __dirname for CJS
+  const currentDir = typeof import.meta !== 'undefined' ? import.meta.dirname : __dirname;
+  const clientBuildPath = path.resolve(currentDir, "public"); // Should resolve to /workspace/dist/public
 
-  // Check if the calculated client build path exists
+  // --- Start Enhanced Logging ---
+  console.log(`[serveStatic] Running script directory (resolved): ${currentDir}`);
+  console.log(`[serveStatic] Calculated client build path: ${clientBuildPath}`);
+
   if (!fs.existsSync(clientBuildPath)) {
-    // Provide a more informative error message
     console.error(`ERROR: Client build directory not found at: ${clientBuildPath}`);
-    console.error(`Current directory (import.meta.dirname inside running script): ${import.meta.dirname}`);
     // Updated context in error message
     console.error("Make sure the client is built correctly (vite build) and its output directory ('dist/public') is included in the deployment.");
-    // Optionally throw an error to halt startup, or serve a minimal error page
     throw new Error(`Client build directory not found: ${clientBuildPath}`);
-    /* Or alternatively, serve an error page:
-    app.use("*", (_req, res) => {
-      res.status(500).send("Server configuration error: Client build not found.");
-    });
-    return;
-    */
+  } else {
+    // Log the contents of the build directory to verify files exist
+    try {
+      const files = fs.readdirSync(clientBuildPath);
+      console.log(`[serveStatic] Contents of ${clientBuildPath}: ${files.join(', ')}`);
+      // Specifically check for the 'assets' subdirectory
+      const assetsPath = path.join(clientBuildPath, 'assets');
+      if (fs.existsSync(assetsPath)) {
+         const assetFiles = fs.readdirSync(assetsPath);
+         console.log(`[serveStatic] Contents of ${assetsPath}: ${assetFiles.join(', ')}`);
+      } else {
+         console.log(`[serveStatic] Assets directory ${assetsPath} does NOT exist!`);
+      }
+    } catch (e) {
+       console.error(`[serveStatic] Error reading directory ${clientBuildPath}:`, e);
+    }
   }
+  // --- End Enhanced Logging ---
 
   log(`Serving static files from: ${clientBuildPath}`); // Uses the 'log' function defined above
 
+  // Middleware to log requests potentially handled by static server
+  app.use((req, res, next) => {
+    // Log requests for files likely within /assets/
+    if (req.path.includes('.') && !req.path.endsWith('.html')) { // Simple check for file extensions, ignore .html
+         console.log(`[Static Check] Request potentially for static file: ${req.path}`);
+    }
+    // Specifically log requests starting with /assets/
+    if (req.path.startsWith('/assets/')) {
+         console.log(`[Static Check] Request for asset: ${req.path}`);
+    }
+    next();
+  });
+
   // Serve static assets (JS, CSS, images) from the client build directory
-  app.use(express.static(clientBuildPath));
+  // Add options to ensure correct Content-Type for JS modules
+  app.use(express.static(clientBuildPath, {
+    setHeaders: (res, filePath) => {
+        if (filePath.endsWith('.js')) {
+            res.setHeader('Content-Type', 'application/javascript');
+        }
+    }
+  }));
+
 
   // Fallback for SPA routing: serve the client's index.html for any unknown routes
   app.use("*", (_req, res) => {
+    // Log when the fallback is actually hit
+    console.log(`[Fallback Route] Serving index.html for request: ${_req.originalUrl}`);
     const indexPath = path.resolve(clientBuildPath, "index.html");
-    res.sendFile(indexPath, (err) => {
-      if (err) {
-        console.error(`Error sending index.html from ${indexPath}:`, err);
-        res.status(500).send("Error loading application.");
-      }
-    });
+    // Check if index.html exists before sending
+    if (fs.existsSync(indexPath)) {
+        res.sendFile(indexPath, (err) => {
+          if (err) {
+            console.error(`Error sending index.html from ${indexPath}:`, err);
+            res.status(500).send("Error loading application.");
+          } else {
+            console.log(`[Fallback Route] Successfully sent index.html for ${_req.originalUrl}`);
+          }
+        });
+    } else {
+        console.error(`[Fallback Route] index.html not found at ${indexPath} for request ${_req.originalUrl}`);
+        res.status(404).send("Application entry point not found.");
+    }
   });
 }
-// --- End of MODIFIED serveStatic function ---
+// --- END OF MODIFIED serveStatic function ---
 
 
 // --- Ensure path and fs imports are at the top ---
