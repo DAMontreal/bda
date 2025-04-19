@@ -69,7 +69,7 @@ export async function setupVite(app: Express, server: Server) {
 // --- REVISED serveStatic FUNCTION ---
 export function serveStatic(app: Express) {
   const currentDir = typeof import.meta !== 'undefined' ? import.meta.dirname : __dirname;
-  const clientBuildPath = path.resolve(currentDir, "..", "dist");
+  const clientBuildPath = path.resolve(currentDir, "..", "dist", "public");
 
   console.log(`[serveStatic] Resolved dist directory: ${clientBuildPath}`);
 
