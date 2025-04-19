@@ -52,7 +52,7 @@ export async function setupVite(app: Express, server: Server) {
       let template = await fs.promises.readFile(clientTemplate, "utf-8");
       template = template.replace(
         `src="/src/main.tsx"`,
-        `src="/src/main.tsx?v=${nanoid()}`
+        `src="/src/main.tsx?v=${nanoid()}"
       );
 
       const page = await vite.transformIndexHtml(url, template);
@@ -66,7 +66,6 @@ export async function setupVite(app: Express, server: Server) {
   });
 }
 
-// --- REVISED serveStatic FUNCTION ---
 export function serveStatic(app: Express) {
   const currentDir = typeof import.meta !== 'undefined' ? import.meta.dirname : __dirname;
   const clientBuildPath = path.resolve(currentDir, "..", "dist", "public");
@@ -112,13 +111,13 @@ export function serveStatic(app: Express) {
     }
   }));
 
-  // Only fallback for non-file routes (SPA routing)
   app.get("*", (req, res) => {
     if (!req.path.includes(".")) {
       console.log(`[Fallback Route] Serving index.html for request: ${req.originalUrl}`);
       const indexPath = path.join(clientBuildPath, "index.html");
 
       if (fs.existsSync(indexPath)) {
+        res.setHeader("Cache-Control", "no-store"); // 🔥 Header ajouté ici
         res.sendFile(indexPath, (err) => {
           if (err) {
             console.error(`Error sending index.html:`, err);
