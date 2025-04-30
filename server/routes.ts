@@ -433,6 +433,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(403).json({ message: "Forbidden" });
       }
       
+      // Convertir la chaîne ISO en objet Date si nécessaire
+      if (typeof eventData.eventDate === 'string') {
+        eventData.eventDate = new Date(eventData.eventDate);
+      }
+      
       const event = await storage.createEvent(eventData);
       
       res.status(201).json(event);
@@ -440,6 +445,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (error instanceof z.ZodError) {
         return res.status(400).json({ message: "Invalid input", errors: error.errors });
       }
+      
+      console.error('Erreur création événement:', error);
       res.status(500).json({ message: "Internal server error" });
     }
   });
@@ -463,7 +470,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(403).json({ message: "Forbidden" });
       }
       
-      const updatedEvent = await storage.updateEvent(id, req.body);
+      // Valider les données avec le schéma approprié
+      const eventData = insertEventSchema.parse(req.body);
+      
+      // Convertir la chaîne ISO en objet Date si nécessaire
+      if (typeof eventData.eventDate === 'string') {
+        eventData.eventDate = new Date(eventData.eventDate);
+      }
+      
+      const updatedEvent = await storage.updateEvent(id, eventData);
       
       if (!updatedEvent) {
         return res.status(404).json({ message: "Event not found" });
@@ -471,6 +486,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       res.status(200).json(updatedEvent);
     } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Invalid input", errors: error.errors });
+      }
+      
+      console.error('Erreur mise à jour événement:', error);
       res.status(500).json({ message: "Internal server error" });
     }
   });
