@@ -60,8 +60,14 @@ export const events = pgTable("events", {
   createdAt: timestamp("created_at").defaultNow(),
 });
 
-export const insertEventSchema = createInsertSchema(events)
+// Créer le schéma de base
+const baseEventSchema = createInsertSchema(events)
   .omit({ id: true, createdAt: true });
+
+// Étendre le schéma pour permettre les chaînes de caractères pour eventDate
+export const insertEventSchema = baseEventSchema.extend({
+  eventDate: z.string().or(z.date()),
+});
 
 // TROC'DAM classifieds
 export const trocAds = pgTable("troc_ads", {
