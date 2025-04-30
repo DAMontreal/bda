@@ -78,10 +78,15 @@ const CreateEvent = ({ eventId }: CreateEventProps) => {
     mutationFn: async (data: EventFormValues) => {
       if (!user) throw new Error("Vous devez être connecté pour créer un événement");
       
-      return apiRequest("POST", "/api/events", {
+      // Transformer l'objet Date en chaîne ISO et s'assurer que les types sont corrects
+      const formattedData = {
         ...data,
+        // S'assurer que la date est au format ISO
+        eventDate: data.eventDate.toISOString(),
         organizerId: user.id,
-      });
+      };
+      
+      return apiRequest("POST", "/api/events", formattedData);
     },
     onSuccess: async () => {
       // Invalidate queries to refresh data
@@ -119,7 +124,14 @@ const CreateEvent = ({ eventId }: CreateEventProps) => {
     mutationFn: async (data: EventFormValues) => {
       if (!eventId) throw new Error("ID d'événement manquant");
       
-      return apiRequest("PUT", `/api/events/${eventId}`, data);
+      // Transformer l'objet Date en chaîne ISO et s'assurer que les types sont corrects
+      const formattedData = {
+        ...data,
+        // S'assurer que la date est au format ISO
+        eventDate: data.eventDate.toISOString(),
+      };
+      
+      return apiRequest("PUT", `/api/events/${eventId}`, formattedData);
     },
     onSuccess: async () => {
       // Invalidate queries to refresh data
