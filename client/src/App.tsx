@@ -29,20 +29,21 @@ function Router() {
     <div className="flex flex-col min-h-screen">
       <Header />
       <main className="flex-grow pt-16">
-        <Switch>
-          <Route path="/" component={Home} />
-          <Route path="/artists" component={Artists} />
-          <Route path="/artists/:id" component={ArtistProfile} />
-          <Route path="/events" component={Events} />
-          <Route path="/trocdam" component={TrocDam} />
-          <Route path="/about" component={About} />
-          <Route path="/register" component={Register} />
-          <Route path="/login" component={Login} />
-          <Route path="/dashboard" component={Dashboard} />
-          <Route path="/messages" component={Messages} />
-          <Route path="/admin" component={Admin} />
-          <Route component={NotFound} />
-        </Switch>
+<Switch>
+  <Route path="/" component={Home} />
+  <Route path="/artists" component={Artists} />
+  <Route path="/artists/:id" component={ArtistProfile} />
+  <Route path="/events" component={Events} />
+  <Route path="/trocdam" component={TrocDam} />
+  <Route path="/about" component={About} />
+  <Route path="/register" component={Register} />
+  <Route path="/login" component={Login} />
+  <Route path="/dashboard" component={Dashboard} />
+  <Route path="/messages/:id" component={Messages} /> {/* ✅ nouvelle route dynamique */}
+  <Route path="/messages" component={Messages} />
+  <Route path="/admin" component={Admin} />
+  <Route component={NotFound} />
+</Switch>
       </main>
       <Footer />
     </div>
