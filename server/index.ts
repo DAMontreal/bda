@@ -10,8 +10,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const app = express();
-// Créer un second serveur pour les vérifications de santé sur le port 8000
-const healthApp = express();
+const healthApp = express(); // Serveur de santé sur port 8000
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
@@ -49,7 +48,7 @@ app.use((req, res, next) => {
 (async () => {
   const server = await registerRoutes(app);
 
-  // Gestionnaire d'erreur global amélioré
+  // Gestionnaire d'erreur global
   app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
     console.error("ERREUR NON GÉRÉE:", err);
     console.error("Stack trace:", err.stack);
@@ -78,8 +77,11 @@ app.use((req, res, next) => {
     // ✅ Servir les fichiers statiques
     serveStatic(app);
 
-    // ✅ Rediriger toutes les autres routes vers index.html (fallback React/Wouter)
+    // ✅ Désactiver le cache sur index.html pour forcer les mises à jour
     app.get("*", (req, res) => {
+      res.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
+      res.setHeader("Pragma", "no-cache");
+      res.setHeader("Expires", "0");
       res.sendFile(path.join(__dirname, "../dist/public/index.html"));
     });
   }
