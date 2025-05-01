@@ -1,7 +1,7 @@
 import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation } from "@tanstack/react-query";
 import { Event, User } from "@shared/schema";
-import { Calendar, MapPin, ChevronDown, ChevronUp, CalendarIcon } from "lucide-react";
+import { Calendar, MapPin, ChevronDown, ChevronUp, CalendarIcon, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -12,12 +12,41 @@ import { formatDate } from "@/lib/utils";
 import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
 import { Link } from "wouter";
+import { apiRequest, queryClient } from "@/lib/queryClient";
 
 const Events = () => {
   const [date, setDate] = useState<Date | undefined>(undefined);
   const [showDetails, setShowDetails] = useState<number | null>(null);
   const { isAuthenticated, isAdmin } = useAuth();
   const { toast } = useToast();
+
+  // Mutation pour supprimer un événement
+  const deleteEventMutation = useMutation({
+    mutationFn: (eventId: number) => {
+      return apiRequest("DELETE", `/api/events/${eventId}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/events"] });
+      toast({
+        title: "Événement supprimé",
+        description: "L'événement a été supprimé avec succès"
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        variant: "destructive",
+        title: "Erreur",
+        description: error.message || "Une erreur est survenue lors de la suppression de l'événement"
+      });
+    }
+  });
+
+  // Fonction pour confirmer la suppression d'un événement
+  const handleDeleteEvent = (eventId: number) => {
+    if (confirm("Êtes-vous sûr de vouloir supprimer cet événement ? Cette action est irréversible.")) {
+      deleteEventMutation.mutate(eventId);
+    }
+  };
 
   // Fetch events
   const { data: events, isLoading } = useQuery<Event[]>({
@@ -45,7 +74,7 @@ const Events = () => {
   };
 
   // Fetch organizer data for each event
-  const EventOrganizer = ({ organizerId }: { organizerId?: number }) => {
+  const EventOrganizer = ({ organizerId }: { organizerId?: number | null }) => {
     const { data: organizer } = useQuery<User>({
       queryKey: [`/api/users/${organizerId}`],
       enabled: !!organizerId,
@@ -183,7 +212,15 @@ const Events = () => {
                         <Link href={`/dashboard?tab=events&edit=${event.id}`}>
                           <Button variant="outline" size="sm">Modifier</Button>
                         </Link>
-                        <Button variant="destructive" size="sm">Supprimer</Button>
+                        <Button 
+                          variant="destructive" 
+                          size="sm"
+                          onClick={() => handleDeleteEvent(event.id)}
+                          disabled={deleteEventMutation.isPending}
+                        >
+                          {deleteEventMutation.isPending ? "Suppression..." : "Supprimer"}
+                          {!deleteEventMutation.isPending && <Trash2 className="ml-2 h-4 w-4" />}
+                        </Button>
                       </div>
                     )}
                   </CardContent>
