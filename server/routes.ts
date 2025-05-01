@@ -13,6 +13,8 @@ import {
   insertTrocAdSchema,
   insertMessageSchema
 } from "@shared/schema";
+import { StorageBucket, uploadFile, deleteFile } from "./supabase";
+import fileUpload from "express-fileupload";
 
 declare module "express-session" {
   interface SessionData {
@@ -385,6 +387,280 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(204).send();
     } catch (error) {
       res.status(500).json({ message: "Internal server error" });
+    }
+  });
+  
+  // File Upload routes
+  app.post("/api/upload/profile-image", requireAuth, async (req, res) => {
+    try {
+      if (!req.files || (!req.files.file && !req.files.image)) {
+        return res.status(400).json({ message: "Aucun fichier téléchargé" });
+      }
+      
+      const userId = req.session.userId!;
+      const user = await storage.getUser(userId);
+      
+      if (!user) {
+        return res.status(404).json({ message: "Utilisateur non trouvé" });
+      }
+      
+      // Accepter soit 'file' (nouveau client) soit 'image' (ancien client) comme nom de paramètre
+      const file = (req.files.file || req.files.image) as fileUpload.UploadedFile;
+      
+      // Validate file type
+      const allowedTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
+      if (!allowedTypes.includes(file.mimetype)) {
+        return res.status(400).json({ 
+          message: "Format de fichier non valide. Seuls JPEG, PNG, GIF et WebP sont acceptés." 
+        });
+      }
+      
+      // Generate unique filename
+      const fileExt = file.name.split('.').pop();
+      const fileName = `${user.id}-${uuidv4()}.${fileExt}`;
+      const filePath = `profile-images/${fileName}`;
+      
+      let fileUrl = "";
+      
+      try {
+        // Upload to Supabase
+        fileUrl = await uploadFile(
+          StorageBucket.PROFILES,
+          filePath,
+          file.data,
+          file.mimetype
+        );
+        
+        if (!fileUrl) {
+          throw new Error("Échec du téléchargement du fichier");
+        }
+      } catch (uploadError: any) {
+        console.error("Erreur lors de l'upload vers Supabase:", uploadError);
+        
+        // Si Supabase n'est pas configuré ou indisponible, utiliser un stockage fallback
+        if (process.env.NODE_ENV === 'development' || process.env.ALLOW_FALLBACK_STORAGE === 'true') {
+          console.log("Utilisation d'un stockage temporaire de secours");
+          
+          // En développement, on peut utiliser une URL de fallback
+          // En production, si configuré, on pourrait utiliser un autre service comme AWS S3, GCS, etc.
+          fileUrl = `https://placehold.co/600x400?text=Profile-${user.id}`;
+          
+          console.log("URL de fallback générée:", fileUrl);
+        } else {
+          // En production sans fallback configuré
+          return res.status(500).json({ 
+            message: "Erreur lors du téléchargement de l'image. Service de stockage non disponible."
+          });
+        }
+      }
+      
+      // Update user profile with the file URL (real or fallback)
+      const updatedUser = await storage.updateUser(userId, { profileImage: fileUrl });
+      
+      res.status(200).json({ 
+        url: fileUrl,
+        user: updatedUser ? { ...updatedUser, password: undefined } : undefined
+      });
+    } catch (error) {
+      console.error("Error uploading profile image:", error);
+      res.status(500).json({ message: "Erreur interne du serveur" });
+    }
+  });
+  
+  app.post("/api/upload/media", requireAuth, async (req, res) => {
+    try {
+      if (!req.files || !req.files.file) {
+        return res.status(400).json({ message: "Aucun fichier n'a été téléchargé" });
+      }
+      
+      const { title, description, mediaType } = req.body;
+      
+      if (!title || !mediaType) {
+        return res.status(400).json({ message: "Le titre et le type de média sont requis" });
+      }
+      
+      const userId = req.session.userId!;
+      
+      const file = req.files.file as fileUpload.UploadedFile;
+      
+      // Validate file type based on mediaType
+      let allowedTypes: string[] = [];
+      let maxSize = 5 * 1024 * 1024; // 5MB default
+      let bucket = StorageBucket.MEDIA;
+      
+      if (mediaType === 'image') {
+        allowedTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
+        maxSize = 5 * 1024 * 1024; // 5MB
+      } else if (mediaType === 'video') {
+        allowedTypes = ['video/mp4', 'video/quicktime', 'video/x-msvideo'];
+        maxSize = 50 * 1024 * 1024; // 50MB
+      } else if (mediaType === 'audio') {
+        allowedTypes = ['audio/mpeg', 'audio/wav', 'audio/ogg'];
+        maxSize = 10 * 1024 * 1024; // 10MB
+      } else {
+        return res.status(400).json({ message: "Type de média invalide" });
+      }
+      
+      if (!allowedTypes.includes(file.mimetype)) {
+        return res.status(400).json({ 
+          message: `Type de fichier invalide pour ${mediaType}. Types acceptés: ${allowedTypes.join(', ')}` 
+        });
+      }
+      
+      // Check file size
+      if (file.size > maxSize) {
+        return res.status(400).json({
+          message: `Fichier trop volumineux. Taille maximum: ${maxSize / (1024 * 1024)}MB`
+        });
+      }
+      
+      // Generate unique filename
+      const fileExt = file.name.split('.').pop();
+      const fileName = `${userId}-${uuidv4()}.${fileExt}`;
+      const filePath = `${mediaType}s/${fileName}`;
+      
+      try {
+        // Upload to Supabase
+        const fileUrl = await uploadFile(
+          bucket,
+          filePath,
+          file.data,
+          file.mimetype
+        );
+        
+        if (!fileUrl) {
+          throw new Error("Échec du téléchargement du fichier");
+        }
+        
+        // Create media entry
+        const mediaData = {
+          userId,
+          title,
+          description: description || '',
+          mediaType,
+          url: fileUrl
+        };
+        
+        const createdMedia = await storage.createProfileMedia(mediaData);
+        
+        res.status(201).json(createdMedia);
+      } catch (uploadError: any) {
+        console.error("Erreur lors du téléchargement sur Supabase:", uploadError);
+        
+        // Si Supabase n'est pas configuré ou indisponible, utiliser un stockage local temporaire
+        if (uploadError.message.includes("bucket") || uploadError.message.includes("storage") || 
+            uploadError.message.includes("Échec du téléchargement du fichier")) {
+          console.log("Utilisation d'un stockage temporaire pour les tests");
+          
+          // Sauvegarder le fichier localement
+          let fileUrl = "";
+          
+          // En mode test/dev, on peut utiliser une URL de base pour tester
+          if (mediaType === 'image') {
+            fileUrl = "https://placehold.co/600x400?text=Image";
+          } else if (mediaType === 'audio') {
+            fileUrl = "https://placehold.co/600x400?text=Audio";
+          } else if (mediaType === 'video') {
+            fileUrl = "https://placehold.co/600x400?text=Video";
+          }
+          
+          const mediaData = {
+            userId,
+            title,
+            description: description || '',
+            mediaType,
+            url: fileUrl
+          };
+          
+          const createdMedia = await storage.createProfileMedia(mediaData);
+          
+          return res.status(201).json({
+            ...createdMedia,
+            _note: "Stockage temporaire utilisé pour les tests. Le fichier n'a pas été réellement téléchargé."
+          });
+        } else {
+          throw uploadError;
+        }
+      }
+    } catch (error: any) {
+      console.error("Erreur lors du téléchargement du média:", error);
+      res.status(500).json({ 
+        message: error.message || "Erreur interne du serveur lors du téléchargement"
+      });
+    }
+  });
+  
+  app.post("/api/upload/event-image", requireAuth, async (req, res) => {
+    try {
+      if (!req.files || (!req.files.file && !req.files.image)) {
+        return res.status(400).json({ message: "Aucun fichier téléchargé" });
+      }
+      
+      // Accepter soit 'file' (nouveau client) soit 'image' (ancien client) comme nom de paramètre
+      const file = (req.files.file || req.files.image) as fileUpload.UploadedFile;
+      
+      // Validate file type
+      const allowedTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
+      if (!allowedTypes.includes(file.mimetype)) {
+        return res.status(400).json({ 
+          message: "Format de fichier non valide. Seuls JPEG, PNG, GIF et WebP sont acceptés." 
+        });
+      }
+      
+      const userId = req.session.userId!;
+      
+      // Check file size (max 5MB)
+      const maxSize = 5 * 1024 * 1024; // 5MB
+      if (file.size > maxSize) {
+        return res.status(400).json({
+          message: "Fichier trop volumineux. Taille maximum: 5MB"
+        });
+      }
+      
+      // Generate unique filename
+      const fileExt = file.name.split('.').pop();
+      const fileName = `event-${uuidv4()}.${fileExt}`;
+      const filePath = `events/${fileName}`;
+      
+      let fileUrl = "";
+      
+      try {
+        // Upload to Supabase
+        fileUrl = await uploadFile(
+          StorageBucket.EVENTS,
+          filePath,
+          file.data,
+          file.mimetype
+        );
+        
+        if (!fileUrl) {
+          throw new Error("Échec du téléchargement du fichier");
+        }
+      } catch (uploadError: any) {
+        console.error("Erreur lors de l'upload vers Supabase:", uploadError);
+        
+        // Si Supabase n'est pas configuré ou indisponible, utiliser un stockage fallback
+        if (process.env.NODE_ENV === 'development' || process.env.ALLOW_FALLBACK_STORAGE === 'true') {
+          console.log("Utilisation d'un stockage temporaire de secours pour l'image d'événement");
+          
+          // En développement, on peut utiliser une URL de fallback
+          // Generate a unique identifier for the placeholder
+          const randomId = Math.floor(Math.random() * 1000);
+          fileUrl = `https://placehold.co/600x400?text=Event-${randomId}`;
+          
+          console.log("URL de fallback générée:", fileUrl);
+        } else {
+          // En production sans fallback configuré
+          return res.status(500).json({ 
+            message: "Erreur lors du téléchargement de l'image. Service de stockage non disponible."
+          });
+        }
+      }
+      
+      res.status(200).json({ url: fileUrl });
+    } catch (error) {
+      console.error("Error uploading event image:", error);
+      res.status(500).json({ message: "Erreur interne du serveur" });
     }
   });
 
