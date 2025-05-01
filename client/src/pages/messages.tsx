@@ -6,12 +6,22 @@ import { Card, CardContent } from "@/components/ui/card";
 import { User, Message } from "@shared/schema";
 import MessageList from "@/components/messages/message-list";
 import Conversation from "@/components/messages/conversation";
-
-
+import { useRoute } from "wouter";
 
 const Messages = () => {
   const { user, isAuthenticated, isLoading: authLoading } = useAuth();
-  const [selectedUserId, setSelectedUserId] = useState<number | null>(null);
+
+  // Route dynamique : /messages/:id
+  const [match, params] = useRoute("/messages/:id");
+  const [selectedUserId, setSelectedUserId] = useState<number | null>(
+    match ? parseInt(params.id) : null
+  );
+
+  useEffect(() => {
+    if (match && params.id) {
+      setSelectedUserId(parseInt(params.id));
+    }
+  }, [match, params]);
 
   // Fetch all user messages
   const { data: userMessages, isLoading: messagesLoading } = useQuery<Message[]>({
@@ -22,18 +32,11 @@ const Messages = () => {
   // Get unique user IDs from messages
   const getUniqueUserIds = (): number[] => {
     if (!userMessages || !user) return [];
-    
     const uniqueIds = new Set<number>();
-    
     userMessages.forEach(message => {
-      if (message.senderId !== user.id) {
-        uniqueIds.add(message.senderId);
-      }
-      if (message.receiverId !== user.id) {
-        uniqueIds.add(message.receiverId);
-      }
+      if (message.senderId !== user.id) uniqueIds.add(message.senderId);
+      if (message.receiverId !== user.id) uniqueIds.add(message.receiverId);
     });
-    
     return Array.from(uniqueIds);
   };
 
