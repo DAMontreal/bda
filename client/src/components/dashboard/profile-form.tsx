@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -13,6 +13,9 @@ import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { disciplines } from "@/lib/utils";
+import { UploadCloud, Camera } from "lucide-react";
+import { Card, CardContent } from "@/components/ui/card";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 interface ProfileFormProps {
   user: User;
@@ -34,6 +37,11 @@ type ProfileFormValues = z.infer<typeof profileSchema>;
 
 const ProfileForm = ({ user }: ProfileFormProps) => {
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [uploadMethod, setUploadMethod] = useState<"url" | "file">("url");
+  const [selectedImage, setSelectedImage] = useState<File | null>(null);
+  const [imagePreviewUrl, setImagePreviewUrl] = useState<string>(user.profileImage || "");
+  const [isUploading, setIsUploading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
 
   // Initialize the form with current user data
@@ -77,6 +85,52 @@ const ProfileForm = ({ user }: ProfileFormProps) => {
       
       setIsSubmitting(false);
     },
+  });
+  
+  // Upload profile image mutation
+  const uploadProfileImageMutation = useMutation({
+    mutationFn: async (file: File) => {
+      const formData = new FormData();
+      formData.append('file', file);
+      
+      return fetch('/api/upload/profile-image', {
+        method: 'POST',
+        body: formData
+      }).then(res => {
+        if (!res.ok) {
+          throw new Error(`Erreur ${res.status}: ${res.statusText}`);
+        }
+        return res.json();
+      });
+    },
+    onSuccess: async (data) => {
+      form.setValue('profileImage', data.url);
+      setImagePreviewUrl(data.url);
+      
+      // Automatically update profile with new image
+      toast({
+        title: "Photo de profil téléchargée",
+        description: "Votre photo de profil a été mise à jour avec succès"
+      });
+      
+      // Invalidate queries to refresh user data
+      await queryClient.invalidateQueries({ queryKey: [`/api/users/${user.id}`] });
+      await queryClient.invalidateQueries({ queryKey: ["/api/auth/me"] });
+      
+      setSelectedImage(null);
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
+      setIsUploading(false);
+    },
+    onError: (error: any) => {
+      toast({
+        variant: "destructive",
+        title: "Erreur",
+        description: error.message || "Une erreur est survenue lors du téléchargement de l'image"
+      });
+      setIsUploading(false);
+    }
   });
 
   const onSubmit = async (data: ProfileFormValues) => {
@@ -186,22 +240,115 @@ const ProfileForm = ({ user }: ProfileFormProps) => {
           />
         </div>
         
-        <FormField
-          control={form.control}
-          name="profileImage"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>URL de la photo de profil</FormLabel>
-              <FormControl>
-                <Input placeholder="https://example.com/votre-photo.jpg" {...field} />
-              </FormControl>
-              <FormDescription>
-                Entrez l'URL d'une image pour votre profil
-              </FormDescription>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
+        <div className="space-y-4">
+          <h3 className="text-lg font-semibold">Photo de profil</h3>
+          <div className="flex flex-col md:flex-row gap-6">
+            <div className="w-full md:w-1/3">
+              <div className="rounded-md border border-gray-200 p-4">
+                <div className="mb-4 text-center">
+                  {imagePreviewUrl ? (
+                    <div className="h-48 w-48 mx-auto overflow-hidden rounded-md">
+                      <img src={imagePreviewUrl} alt="Photo de profil" className="h-full w-full object-cover" />
+                    </div>
+                  ) : (
+                    <div className="h-48 w-48 mx-auto flex items-center justify-center rounded-md bg-gray-100">
+                      <Camera size={48} className="text-gray-400" />
+                    </div>
+                  )}
+                </div>
+                
+                <Tabs defaultValue="url" onValueChange={(value) => setUploadMethod(value as "url" | "file")}>
+                  <TabsList className="grid w-full grid-cols-2">
+                    <TabsTrigger value="url">Par URL</TabsTrigger>
+                    <TabsTrigger value="file">Télécharger</TabsTrigger>
+                  </TabsList>
+                  
+                  <TabsContent value="url" className="mt-4">
+                    <FormField
+                      control={form.control}
+                      name="profileImage"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormControl>
+                            <Input placeholder="https://example.com/votre-photo.jpg" {...field} />
+                          </FormControl>
+                          <FormDescription>
+                            Entrez l'URL d'une image pour votre profil
+                          </FormDescription>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </TabsContent>
+                  
+                  <TabsContent value="file" className="mt-4">
+                    <div className="space-y-4">
+                      <div className="border-2 border-dashed border-gray-200 rounded-md p-6">
+                        <input 
+                          type="file"
+                          ref={fileInputRef}
+                          accept="image/*"
+                          className="block w-full text-sm text-gray-500"
+                          onChange={(e) => {
+                            if (e.target.files && e.target.files.length > 0) {
+                              const file = e.target.files[0];
+                              const maxSize = 5 * 1024 * 1024; // 5MB
+                              if (file.size > maxSize) {
+                                toast({
+                                  variant: "destructive",
+                                  title: "Fichier trop volumineux",
+                                  description: "La taille maximum est de 5 MB",
+                                });
+                                e.target.value = "";
+                                setSelectedImage(null);
+                              } else {
+                                setSelectedImage(file);
+                                // Create preview URL
+                                const url = URL.createObjectURL(file);
+                                setImagePreviewUrl(url);
+                              }
+                            }
+                          }}
+                        />
+                        <p className="text-xs text-gray-500 mt-2">
+                          Formats acceptés: JPG, PNG, GIF, WebP (max 5 MB)
+                        </p>
+                      </div>
+                      
+                      <Button 
+                        type="button" 
+                        className="bg-[#FF5500]"
+                        disabled={!selectedImage || isUploading}
+                        onClick={async () => {
+                          if (selectedImage) {
+                            setIsUploading(true);
+                            try {
+                              await uploadProfileImageMutation.mutateAsync(selectedImage);
+                            } catch (error) {
+                              console.error("Erreur lors du téléchargement:", error);
+                            }
+                          }
+                        }}
+                      >
+                        {isUploading ? (
+                          "Téléchargement en cours..."
+                        ) : (
+                          <>
+                            <UploadCloud className="mr-2 h-4 w-4" /> Télécharger l'image
+                          </>
+                        )}
+                      </Button>
+                    </div>
+                  </TabsContent>
+                </Tabs>
+              </div>
+            </div>
+            
+            <div className="w-full md:w-2/3">
+              {/* Le reste du formulaire continue ici */}
+            </div>
+          </div>
+        </div>
         
         <FormField
           control={form.control}
