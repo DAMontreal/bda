@@ -15,6 +15,7 @@ import {
 } from "@shared/schema";
 import { StorageBucket, uploadFile, deleteFile } from "./supabase";
 import fileUpload from "express-fileupload";
+import * as fs from 'fs';
 
 declare module "express-session" {
   interface SessionData {
@@ -407,6 +408,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Accepter soit 'file' (nouveau client) soit 'image' (ancien client) comme nom de paramètre
       const file = (req.files.file || req.files.image) as fileUpload.UploadedFile;
       
+      // DEBUG: Vérifier les informations du fichier
+      console.log('DEBUG UPLOAD: Détails du fichier:');
+      console.log(`- Nom: ${file.name}`);
+      console.log(`- MIME: ${file.mimetype}`);
+      console.log(`- Taille: ${file.size} bytes`);
+      console.log(`- Est-ce un Buffer?: ${Buffer.isBuffer(file.data)}`);
+      console.log(`- Longueur du Buffer: ${file.data ? file.data.length : 'N/A'} bytes`);
+      
       // Validate file type
       const allowedTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
       if (!allowedTypes.includes(file.mimetype)) {
@@ -424,10 +433,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       try {
         // Upload to Supabase
+        // Utiliser le chemin tempFilePath au lieu de file.data puisque nous utilisons useTempFiles: true
+        const fileData = await fs.promises.readFile(file.tempFilePath);
+        console.log(`Lecture du fichier temporaire: ${file.tempFilePath}, taille: ${fileData.length} bytes`);
+        
         fileUrl = await uploadFile(
           StorageBucket.PROFILES,
           filePath,
-          file.data,
+          fileData, // Utiliser le contenu lu du fichier temporaire
           file.mimetype
         );
         
@@ -520,11 +533,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const filePath = `${mediaType}s/${fileName}`;
       
       try {
+        // Utiliser le fichier temporaire au lieu de file.data
+        const fileData = await fs.promises.readFile(file.tempFilePath);
+        console.log(`Lecture du fichier temporaire (média): ${file.tempFilePath}, taille: ${fileData.length} bytes`);
+        
         // Upload to Supabase
         const fileUrl = await uploadFile(
           bucket,
           filePath,
-          file.data,
+          fileData,
           file.mimetype
         );
         
@@ -625,11 +642,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
       let fileUrl = "";
       
       try {
+        // Utiliser le fichier temporaire au lieu de file.data
+        const fileData = await fs.promises.readFile(file.tempFilePath);
+        console.log(`Lecture du fichier temporaire (événement): ${file.tempFilePath}, taille: ${fileData.length} bytes`);
+        
         // Upload to Supabase
         fileUrl = await uploadFile(
           StorageBucket.EVENTS,
           filePath,
-          file.data,
+          fileData,
           file.mimetype
         );
         

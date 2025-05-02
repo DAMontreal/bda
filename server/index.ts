@@ -2,18 +2,22 @@ import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
 import { createServer } from "http";
-import path from "path";
-import { fileURLToPath } from "url";
-
-// Pour compatibilité avec __dirname en module ES
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+import fileUpload from "express-fileupload";
+import { initializeStorage } from "./supabase";
 
 const app = express();
-const healthApp = express(); // Serveur de santé sur port 8000
-
+// Créer un second serveur pour les vérifications de santé sur le port 8000
+const healthApp = express();
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
+app.use(fileUpload({
+  limits: { 
+    fileSize: 10 * 1024 * 1024 // 10MB limite de taille
+  },
+  abortOnLimit: true,
+  useTempFiles: true,
+  tempFileDir: '/tmp/'
+}));
 
 app.use((req, res, next) => {
   const start = Date.now();
@@ -46,67 +50,78 @@ app.use((req, res, next) => {
 });
 
 (async () => {
+  // Initialiser les buckets Supabase
+  try {
+    await initializeStorage();
+  } catch (error) {
+    console.error('Erreur lors de l\'initialisation de Supabase Storage:', error);
+  }
+  
   const server = await registerRoutes(app);
 
-  // Gestionnaire d'erreur global
+  // Gestionnaire d'erreur global amélioré
   app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
+    // Log détaillé de l'erreur
     console.error("ERREUR NON GÉRÉE:", err);
     console.error("Stack trace:", err.stack);
-
+    
+    // Statut HTTP à utiliser
     const status = err.status || err.statusCode || 500;
+    
+    // Message d'erreur à afficher
     const message = err.message || "Internal Server Error";
-
+    
+    // En production, on n'inclut pas les détails techniques dans la réponse
     const responseBody = {
       message,
-      ...(process.env.NODE_ENV !== "production" && {
+      // Inclure les détails techniques seulement en développement
+      ...(process.env.NODE_ENV !== 'production' && { 
         error: err.toString(),
-        stack: err.stack,
-      }),
+        stack: err.stack
+      })
     };
-
+    
+    // Envoyer la réponse
     res.status(status).json(responseBody);
-
-    if (process.env.NODE_ENV !== "production") {
+    
+    // En dev, on propage l'erreur pour avoir un crash complet
+    if (process.env.NODE_ENV !== 'production') {
       throw err;
     }
   });
 
+  // importantly only setup vite in development and after
+  // setting up all the other routes so the catch-all route
+  // doesn't interfere with the other routes
   if (app.get("env") === "development") {
     await setupVite(app, server);
   } else {
-    // ✅ Servir les fichiers statiques
     serveStatic(app);
-
-    // ✅ Désactiver le cache sur index.html pour forcer les mises à jour
-    app.get("*", (req, res) => {
-      res.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
-      res.setHeader("Pragma", "no-cache");
-      res.setHeader("Expires", "0");
-      res.sendFile(path.join(__dirname, "../dist/public/index.html"));
-    });
   }
 
+  // ALWAYS serve the app on port 5000
+  // this serves both the API and the client.
+  // It is the only port that is not firewalled.
   const port = 5000;
-  server.listen(
-    {
-      port,
-      host: "0.0.0.0",
-      reusePort: true,
-    },
-    () => {
-      log(`serving on port ${port}`);
-    }
-  );
-
-  // Serveur de santé
-  healthApp.get("/health", (_req, res) => {
-    res.status(200).send("OK");
+  server.listen({
+    port,
+    host: "0.0.0.0",
+    reusePort: true,
+  }, () => {
+    log(`serving on port ${port}`);
   });
 
-  if (process.env.NODE_ENV === "production") {
+  // Configuration du serveur de santé sur le port 8000
+  // Configuration des routes de santé
+  healthApp.get('/health', (req, res) => {
+    res.status(200).send('OK');
+  });
+
+  // Créer et démarrer le serveur HTTP de santé sur le port 8000
+  if (process.env.NODE_ENV === 'production') {
     const healthServer = createServer(healthApp);
-    healthServer.listen(8000, "0.0.0.0", () => {
-      log("Health check server running on port 8000");
+    healthServer.listen(8000, '0.0.0.0', () => {
+      log('Health check server running on port 8000');
     });
   }
 })();
