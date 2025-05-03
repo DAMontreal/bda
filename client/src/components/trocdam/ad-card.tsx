@@ -8,6 +8,7 @@ import { formatTimeAgo, getTrocCategoryLabel } from "@/lib/utils";
 import { MessageSquare } from "lucide-react";
 import { Link } from "wouter";
 import { useAuth } from "@/hooks/use-auth";
+import FormattedText from "@/components/ui/formatted-text";
 
 interface TrocAdCardProps {
   ad: TrocAd;
@@ -35,9 +36,13 @@ const TrocAdCard = ({ ad }: TrocAdCardProps) => {
           {getTrocCategoryLabel(ad.category)}
         </Badge>
       </div>
-      <p className="text-gray-500 text-sm mb-4">
-        {ad.description.length > 120 ? `${ad.description.substring(0, 120)}...` : ad.description}
-      </p>
+      <div className="text-gray-500 text-sm mb-4">
+        {ad.description.length > 120 ? (
+          <p>{ad.description.substring(0, 120)}...</p>
+        ) : (
+          <FormattedText text={ad.description} />
+        )}
+      </div>
       <div className="flex justify-between items-center">
         <div className="flex items-center">
           <Avatar className="h-8 w-8 mr-2">
