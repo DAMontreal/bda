@@ -56,6 +56,7 @@ export const events = pgTable("events", {
   location: text("location").notNull(),
   eventDate: timestamp("event_date").notNull(),
   imageUrl: text("image_url"),
+  registrationUrl: text("registration_url"),
   organizerId: integer("organizer_id").references(() => users.id),
   createdAt: timestamp("created_at").defaultNow(),
 });
