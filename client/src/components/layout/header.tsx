@@ -10,6 +10,7 @@ import {
 import { Menu, ChevronDown, X } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
 import { useIsMobile } from "@/hooks/use-mobile";
+import MessageBadge from "@/components/messages/message-badge";
 
 const Header = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -162,8 +163,9 @@ const Header = () => {
                   </Button>
                 </Link>
                 <Link href="/messages">
-                  <Button variant="ghost" className="font-medium">
+                  <Button variant="ghost" className="font-medium flex items-center">
                     {labels.messages}
+                    <MessageBadge />
                   </Button>
                 </Link>
                 <Button
@@ -235,9 +237,10 @@ const Header = () => {
                   </Link>
                   <Link
                     href="/messages"
-                    className="font-medium py-2 hover:text-[#FF5500] transition-colors"
+                    className="font-medium py-2 hover:text-[#FF5500] transition-colors flex items-center"
                   >
                     {labels.messages}
+                    <MessageBadge />
                   </Link>
                   {isAdmin && (
                     <Link
