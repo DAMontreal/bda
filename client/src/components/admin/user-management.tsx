@@ -5,14 +5,18 @@ import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
-import { Search, UserX, ShieldCheck, Shield } from "lucide-react";
+import { Search, UserX, ShieldCheck, Shield, UserCog } from "lucide-react";
 import { User } from "@shared/schema";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { getDisciplineLabel } from "@/lib/utils";
+import EditUserProfile from "./edit-user-profile";
+import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 
 const UserManagement = () => {
   const [searchTerm, setSearchTerm] = useState("");
+  const [editingUser, setEditingUser] = useState<User | null>(null);
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const queryClient = useQueryClient();
   const { toast } = useToast();
 
@@ -76,6 +80,21 @@ const UserManagement = () => {
     if (confirm("Êtes-vous sûr de vouloir désactiver cet utilisateur? Il ne pourra plus se connecter.")) {
       disableUserMutation.mutate(userId);
     }
+  };
+  
+  // Handle edit user
+  const handleEditUser = (user: User) => {
+    setEditingUser(user);
+    setIsEditDialogOpen(true);
+  };
+  
+  // Handle edit dialog close
+  const handleEditDialogClose = () => {
+    setIsEditDialogOpen(false);
+    // Leave a slight delay before clearing the user to avoid UI flicker
+    setTimeout(() => {
+      setEditingUser(null);
+    }, 200);
   };
 
   // Get initials for avatar fallback
@@ -166,8 +185,17 @@ const UserManagement = () => {
                   <Button
                     variant="ghost"
                     size="icon"
+                    title="Modifier le profil"
+                    onClick={() => handleEditUser(user)}
+                    className="text-orange-600 hover:text-orange-800"
+                  >
+                    <UserCog className="h-5 w-5" />
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="icon"
                     title={user.isAdmin ? "Retirer les droits d'administrateur" : "Faire administrateur"}
-                    onClick={() => handleToggleAdmin(user.id, user.isAdmin)}
+                    onClick={() => handleToggleAdmin(user.id, user.isAdmin || false)}
                     className={user.isAdmin ? "text-blue-600 hover:text-blue-800" : "text-gray-600 hover:text-gray-800"}
                   >
                     {user.isAdmin ? <ShieldCheck className="h-5 w-5" /> : <Shield className="h-5 w-5" />}
@@ -187,6 +215,23 @@ const UserManagement = () => {
           ))}
         </div>
       )}
+      
+      {/* Dialog for editing user profile */}
+      <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+          <DialogTitle>
+            {editingUser ? `Modifier le profil de ${editingUser.firstName} ${editingUser.lastName}` : 'Modifier le profil'}
+          </DialogTitle>
+          
+          {editingUser && (
+            <EditUserProfile 
+              user={editingUser} 
+              onSuccess={handleEditDialogClose} 
+              onCancel={handleEditDialogClose} 
+            />
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
