@@ -13,6 +13,7 @@ import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
 import { Link } from "wouter";
 import { apiRequest, queryClient } from "@/lib/queryClient";
+import FormattedText from "@/components/ui/formatted-text";
 
 const Events = () => {
   const [date, setDate] = useState<Date | undefined>(undefined);
@@ -184,7 +185,7 @@ const Events = () => {
                     </div>
                     
                     <div className={showDetails === event.id ? "mb-4" : "mb-4 line-clamp-2"}>
-                      <p className="text-gray-600">{event.description}</p>
+                      <FormattedText text={event.description} className="text-gray-600" />
                     </div>
                     
                     {showDetails === event.id && <EventOrganizer organizerId={event.organizerId} />}

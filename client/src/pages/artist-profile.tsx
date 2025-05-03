@@ -19,6 +19,7 @@ import { BadgeCheck, Mail, Download, MapPin } from "lucide-react";
 import { getDisciplineLabel } from "@/lib/utils";
 import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
+import FormattedText from "@/components/ui/formatted-text";
 
 const ArtistProfile = () => {
   const { id } = useParams();
@@ -143,7 +144,7 @@ const ArtistProfile = () => {
             <div className="flex items-center mb-2">
               <h1 className="text-3xl font-bold mr-2">{artist.firstName} {artist.lastName}</h1>
               {artist.isApproved && (
-                <BadgeCheck className="h-5 w-5 text-[#FF5500]" title="Artiste vérifié" />
+                <BadgeCheck className="h-5 w-5 text-[#FF5500]" aria-label="Artiste vérifié" />
               )}
             </div>
             
@@ -156,9 +157,7 @@ const ArtistProfile = () => {
             )}
 
             {artist.bio && (
-              <p className="text-gray-600 mb-6">
-                {artist.bio}
-              </p>
+              <FormattedText text={artist.bio} className="text-gray-600 mb-6" />
             )}
 
             {artist.location && (
@@ -250,7 +249,7 @@ const ArtistProfile = () => {
                   </div>
                   <div className="p-4">
                     <h3 className="font-bold">{video.title}</h3>
-                    {video.description && <p className="text-gray-600 text-sm">{video.description}</p>}
+                    {video.description && <FormattedText text={video.description} className="text-gray-600 text-sm" />}
                   </div>
                 </div>
               ))}
@@ -270,7 +269,7 @@ const ArtistProfile = () => {
                   />
                   <div className="p-4">
                     <h3 className="font-bold">{image.title}</h3>
-                    {image.description && <p className="text-gray-600 text-sm">{image.description}</p>}
+                    {image.description && <FormattedText text={image.description} className="text-gray-600 text-sm" />}
                   </div>
                 </div>
               ))}
@@ -284,7 +283,7 @@ const ArtistProfile = () => {
               {audio.map((track) => (
                 <div key={track.id} className="bg-white rounded-lg shadow-md p-4">
                   <h3 className="font-bold mb-2">{track.title}</h3>
-                  {track.description && <p className="text-gray-600 text-sm mb-3">{track.description}</p>}
+                  {track.description && <FormattedText text={track.description} className="text-gray-600 text-sm mb-3" />}
                   <audio controls className="w-full">
                     <source src={track.url} type="audio/mpeg" />
                     Votre navigateur ne supporte pas l'élément audio.
