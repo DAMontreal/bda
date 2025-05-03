@@ -398,8 +398,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "Aucun fichier téléchargé" });
       }
       
-      const userId = req.session.userId!;
-      const user = await storage.getUser(userId);
+      // Vérifier si on met à jour l'image d'un autre utilisateur (admin uniquement)
+      const targetUserId = req.query.userId ? parseInt(req.query.userId as string) : req.session.userId!;
+      
+      // Si on modifie un autre utilisateur, vérifier les permissions d'admin
+      if (targetUserId !== req.session.userId && !req.session.isAdmin) {
+        return res.status(403).json({ message: "Vous n'avez pas les droits pour modifier cet utilisateur" });
+      }
+      
+      const user = await storage.getUser(targetUserId);
       
       if (!user) {
         return res.status(404).json({ message: "Utilisateur non trouvé" });
@@ -468,7 +475,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       // Update user profile with the file URL (real or fallback)
-      const updatedUser = await storage.updateUser(userId, { profileImage: fileUrl });
+      const updatedUser = await storage.updateUser(targetUserId, { profileImage: fileUrl });
       
       res.status(200).json({ 
         url: fileUrl,
@@ -955,6 +962,40 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Route spécifique pour les conversations entre deux utilisateurs
+  app.get("/api/messages/conversation/:user1Id/:user2Id", requireAuth, async (req, res) => {
+    try {
+      const user1Id = parseInt(req.params.user1Id);
+      const user2Id = parseInt(req.params.user2Id);
+      
+      if (isNaN(user1Id) || isNaN(user2Id)) {
+        return res.status(400).json({ message: "Invalid user ID" });
+      }
+      
+      // Vérification de sécurité : l'utilisateur demandant les messages doit être l'un des deux participants
+      if (req.session.userId !== user1Id && req.session.userId !== user2Id) {
+        return res.status(403).json({ message: "Forbidden" });
+      }
+      
+      const conversation = await storage.getConversation(user1Id, user2Id);
+      
+      res.status(200).json(conversation);
+    } catch (error) {
+      console.error("Error fetching conversation:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  // Route pour obtenir tous les messages de l'utilisateur actuel
+  app.get("/api/messages", requireAuth, async (req, res) => {
+    try {
+      const messages = await storage.getMessages(req.session.userId);
+      res.status(200).json(messages);
+    } catch (error) {
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
   app.get("/api/messages/:userId", requireAuth, async (req, res) => {
     try {
       const otherUserId = parseInt(req.params.userId);
@@ -970,7 +1011,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({ message: "Internal server error" });
     }
   });
-
+  
   app.post("/api/messages", requireAuth, async (req, res) => {
     try {
       const messageData = insertMessageSchema.parse({
