@@ -34,6 +34,7 @@ const eventSchema = z.object({
     required_error: "La date est requise",
   }),
   imageUrl: z.string().url("Veuillez entrer une URL valide").optional().or(z.literal("")),
+  registrationUrl: z.string().url("Veuillez entrer une URL valide pour l'inscription").optional().or(z.literal("")),
 });
 
 type EventFormValues = z.infer<typeof eventSchema>;
@@ -64,6 +65,7 @@ const CreateEvent = ({ eventId }: CreateEventProps) => {
       location: "",
       eventDate: new Date(),
       imageUrl: "",
+      registrationUrl: "",
     },
   });
 
@@ -76,6 +78,7 @@ const CreateEvent = ({ eventId }: CreateEventProps) => {
         location: event.location,
         eventDate: new Date(event.eventDate),
         imageUrl: event.imageUrl || "",
+        registrationUrl: event.registrationUrl || "",
       });
       // Initialiser l'URL de l'image pour la prévisualisation
       if (event.imageUrl) {
@@ -156,6 +159,7 @@ const CreateEvent = ({ eventId }: CreateEventProps) => {
         location: "",
         eventDate: new Date(),
         imageUrl: "",
+        registrationUrl: "",
       });
       
       // Reset image state
@@ -323,6 +327,27 @@ const CreateEvent = ({ eventId }: CreateEventProps) => {
               </FormControl>
               <FormDescription>
                 Indiquez les informations importantes comme l'horaire, le programme, les intervenants, etc.
+              </FormDescription>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+        
+        <FormField
+          control={form.control}
+          name="registrationUrl"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Lien d'inscription</FormLabel>
+              <FormControl>
+                <Input 
+                  type="url"
+                  placeholder="https://billetterie.example.com" 
+                  {...field} 
+                />
+              </FormControl>
+              <FormDescription>
+                Ajoutez un lien vers un site de billetterie ou d'inscription pour votre événement (optionnel)
               </FormDescription>
               <FormMessage />
             </FormItem>
