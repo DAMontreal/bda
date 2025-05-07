@@ -15,12 +15,15 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Info } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
 import { disciplines } from "@/lib/utils";
+import { DefaultProfileSelector } from "@/components/auth/default-profile-selector";
+import { getDefaultProfileImageFilename } from "@/components/ui/default-profile-image";
 
 // Extend the insert schema with validation rules
 const registerSchema = insertUserSchema.extend({
   email: z.string().email("Adresse email invalide"),
   password: z.string().min(8, "Le mot de passe doit contenir au moins 8 caractères"),
   confirmPassword: z.string(),
+  defaultProfileImage: z.string().default(() => getDefaultProfileImageFilename()),
 }).refine((data) => data.password === data.confirmPassword, {
   message: "Les mots de passe ne correspondent pas",
   path: ["confirmPassword"],
@@ -29,7 +32,6 @@ const registerSchema = insertUserSchema.extend({
 type RegisterFormValues = z.infer<typeof registerSchema>;
 
 const Register = () => {
-  const [success, setSuccess] = useState(false);
   const [, navigate] = useLocation();
   const { isAuthenticated, register } = useAuth();
 
@@ -51,7 +53,8 @@ const Register = () => {
       discipline: "",
       location: "",
       website: "",
-      socialMedia: {}
+      socialMedia: {},
+      defaultProfileImage: getDefaultProfileImageFilename()
     }
   });
 
@@ -61,42 +64,14 @@ const Register = () => {
   const onSubmit = async (data: RegisterFormValues) => {
     try {
       await register(data);
-      // Show success message
-      setSuccess(true);
+      // Redirect to pending approval page
+      navigate("/pending-approval");
     } catch (error) {
       console.error("Registration error:", error);
     }
   };
 
-  if (success) {
-    return (
-      <div className="container mx-auto px-4 py-12 max-w-md">
-        <Card>
-          <CardHeader>
-            <CardTitle>Inscription réussie!</CardTitle>
-            <CardDescription>
-              Votre demande d'inscription a été envoyée avec succès.
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <Alert>
-              <Info className="h-4 w-4" />
-              <AlertTitle>Compte en attente d'approbation</AlertTitle>
-              <AlertDescription>
-                Votre compte doit être approuvé par un administrateur avant que vous puissiez vous connecter.
-                Vous recevrez une notification par email une fois votre compte approuvé.
-              </AlertDescription>
-            </Alert>
-            <div className="mt-6">
-              <Button asChild className="w-full">
-                <Link href="/login">Aller à la page de connexion</Link>
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-    );
-  }
+
 
   return (
     <div className="container mx-auto px-4 py-12 max-w-md">
@@ -205,6 +180,12 @@ const Register = () => {
                     )}
                   />
                 </div>
+                
+                {/* Sélecteur d'image de profil par défaut */}
+                <DefaultProfileSelector 
+                  control={form.control} 
+                  name="defaultProfileImage" 
+                />
                 
                 <FormField
                   control={form.control}
