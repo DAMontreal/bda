@@ -1,4 +1,6 @@
 import { createClient } from '@supabase/supabase-js';
+import sharp from 'sharp';
+import { resizeProfileImage, resizeFeaturedImage } from './image-utils';
 
 // Vérifier que les variables d'environnement sont définies
 if (!process.env.SUPABASE_URL || !process.env.SUPABASE_KEY) {
@@ -90,11 +92,31 @@ export async function uploadFile(
   filePath: string,
   fileContent: Buffer,
   contentType: string
-): Promise<string | null> {
+): Promise<string> {
   console.log(`Tentative d'upload pour ${bucket}/${filePath}`);
   
-  // Vérifier si nous avons une erreur RLS (Row Level Security)
   try {
+    // Redimensionnement des images selon leur type
+    let processedContent = fileContent;
+    
+    if (contentType.startsWith('image/')) {
+      console.log(`Traitement d'une image: ${filePath}`);
+      
+      // Redimensionner les photos de profil
+      if (filePath.includes('profile-images')) {
+        console.log('Redimensionnement de l\'image de profil...');
+        processedContent = await resizeProfileImage(fileContent);
+        console.log(`Image de profil redimensionnée: ${processedContent.length} bytes`);
+      } 
+      // Redimensionner les images d'artistes en vedette
+      else if (filePath.includes('featured') || filePath.includes('events')) {
+        console.log('Redimensionnement de l\'image pour événement ou artiste en vedette...');
+        processedContent = await resizeFeaturedImage(fileContent);
+        console.log(`Image redimensionnée: ${processedContent.length} bytes`);
+      }
+    }
+    
+    // Vérifier si nous avons une erreur RLS (Row Level Security)
     console.log(`Test d'accès au bucket ${bucket} pour vérifier les permissions...`);
     const { data, error } = await supabaseClient.storage
       .from(bucket)
@@ -120,23 +142,22 @@ export async function uploadFile(
     }
     
     // Si le test réussit, continuez avec l'upload réel
-    console.log(`✅ Test réussi. Tentative d'upload du fichier réel...`);
-    console.log(`✅ DEBUG: Type de fileContent: ${typeof fileContent}`);
-    console.log(`✅ DEBUG: Est Buffer?: ${Buffer.isBuffer(fileContent)}`);
-    console.log(`✅ DEBUG: Taille du buffer: ${fileContent ? fileContent.length : 'N/A'} bytes`);
+    console.log(`✅ Test réussi. Tentative d'upload du fichier redimensionné...`);
+    console.log(`✅ DEBUG: Est Buffer?: ${Buffer.isBuffer(processedContent)}`);
+    console.log(`✅ DEBUG: Taille du buffer: ${processedContent.length} bytes`);
     
     // Vérifier si le buffer est valide, sinon créer un buffer de test
-    if (!Buffer.isBuffer(fileContent) || fileContent.length === 0) {
+    if (!Buffer.isBuffer(processedContent) || processedContent.length === 0) {
       console.warn(`⚠️ ATTENTION: Buffer invalide détecté! Création d'un buffer de test.`);
       // Créer un petit fichier texte pour tester
-      fileContent = Buffer.from('Test file content');
+      processedContent = Buffer.from('Test file content');
       contentType = 'text/plain';
-      console.log(`✅ Buffer de test créé: ${fileContent.length} bytes`);
+      console.log(`✅ Buffer de test créé: ${processedContent.length} bytes`);
     }
     
     const uploadResult = await supabaseClient.storage
       .from(bucket)
-      .upload(filePath, fileContent, {
+      .upload(filePath, processedContent, {
         contentType,
         upsert: true
       });
