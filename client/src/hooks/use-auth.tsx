@@ -5,6 +5,7 @@ import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { User } from "@shared/schema";
 import { queryClient } from "@/lib/queryClient";
+import { getDefaultProfileImageFilename } from "@/components/ui/default-profile-image";
 
 interface AuthContextType {
   user: User | null;
@@ -22,50 +23,26 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
   const { toast } = useToast();
   const [, navigate] = useLocation();
-  const [user, setUser] = useState<User | null>(null);
-  const [isLoading, setIsLoading] = useState<boolean>(true);
-  
-  // Vérifier l'état d'authentification au chargement
+
+  const { data: user, isLoading } = useQuery<User | null>({
+    queryKey: ["/api/auth/me"],
+    retry: false
+  });
+
   useEffect(() => {
-    async function checkAuthStatus() {
-      try {
-        const res = await fetch("/api/auth/me", {
-          credentials: "include",
-        });
-        
-        if (res.status === 401) {
-          setUser(null);
-          setIsAuthenticated(false);
-        } else if (res.ok) {
-          const userData = await res.json();
-          setUser(userData);
-          setIsAuthenticated(true);
-        } else {
-          console.error(`Erreur de requête: ${res.status}`);
-          setUser(null);
-          setIsAuthenticated(false);
-        }
-      } catch (error) {
-        console.error("Erreur lors de la récupération des données d'authentification:", error);
-        setUser(null);
-        setIsAuthenticated(false);
-      } finally {
-        setIsLoading(false);
-      }
+    if (user) {
+      setIsAuthenticated(true);
+    } else if (!isLoading) {
+      setIsAuthenticated(false);
     }
-    
-    checkAuthStatus();
-  }, []);
+  }, [user, isLoading]);
 
   const loginMutation = useMutation({
     mutationFn: async (credentials: { username: string; password: string }) => {
-      const response = await apiRequest("POST", "/api/auth/login", credentials);
-      const userData = await response.json();
-      return userData;
+      return apiRequest("POST", "/api/auth/login", credentials);
     },
-    onSuccess: (userData) => {
-      // Mettre à jour l'état localement
-      setUser(userData);
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ["/api/auth/me"] });
       setIsAuthenticated(true);
       toast({
         title: "Connexion réussie",
@@ -87,8 +64,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return apiRequest("POST", "/api/auth/logout", {});
     },
     onSuccess: () => {
-      // Mettre à jour l'état localement
-      setUser(null);
+      queryClient.resetQueries({ queryKey: ["/api/auth/me"] });
+      queryClient.setQueryData(["/api/auth/me"], null);
       setIsAuthenticated(false);
       toast({
         title: "Déconnexion réussie",
@@ -138,6 +115,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const register = async (userData: any) => {
+    // Ajouter une image de profil par défaut si aucune n'est fournie
+    if (!userData.profileImage) {
+      // Générer un nom de fichier d'image par défaut
+      const defaultImageFilename = getDefaultProfileImageFilename();
+      // L'image sera redimensionnée au bon format par le serveur
+      userData.defaultProfileImage = defaultImageFilename;
+    }
     await registerMutation.mutateAsync(userData);
   };
 
