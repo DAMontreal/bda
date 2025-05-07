@@ -22,6 +22,7 @@ import Login from "@/pages/login";
 import Dashboard from "@/pages/dashboard";
 import Messages from "@/pages/messages";
 import Admin from "@/pages/admin";
+import PendingApproval from "@/pages/pending-approval";
 
 // Auth Provider
 import { AuthProvider } from "@/hooks/use-auth";
@@ -45,6 +46,7 @@ function Router() {
           <Route path="/messages" component={Messages} />
           <Route path="/messages/:userId" component={Messages} />
           <Route path="/admin" component={Admin} />
+          <Route path="/pending-approval" component={PendingApproval} />
           <Route component={NotFound} />
         </Switch>
       </main>
