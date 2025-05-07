@@ -16,6 +16,7 @@ import { disciplines } from "@/lib/utils";
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { X, Upload, Loader2 } from "lucide-react";
+import ManageUserMedia from "./manage-user-media";
 
 // Schéma de validation pour le formulaire
 const userProfileSchema = z.object({
@@ -181,6 +182,7 @@ const EditUserProfile = ({ user, onSuccess, onCancel }: EditUserProfileProps) =>
           <TabsList className="mb-4">
             <TabsTrigger value="profile">Profil</TabsTrigger>
             <TabsTrigger value="photo">Photo de profil</TabsTrigger>
+            <TabsTrigger value="media">Médias</TabsTrigger>
             <TabsTrigger value="settings">Paramètres</TabsTrigger>
           </TabsList>
           
@@ -400,6 +402,10 @@ const EditUserProfile = ({ user, onSuccess, onCancel }: EditUserProfileProps) =>
                 )}
               </div>
             </div>
+          </TabsContent>
+          
+          <TabsContent value="media">
+            <ManageUserMedia user={user} />
           </TabsContent>
           
           <TabsContent value="settings">
