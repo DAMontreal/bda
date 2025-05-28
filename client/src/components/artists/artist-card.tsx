@@ -18,7 +18,7 @@ const ArtistCard = ({ artist }: ArtistCardProps) => {
   return (
     <Card className="overflow-hidden shadow-md hover:shadow-lg transition-all hover:translate-y-[-5px]">
       <div 
-        className="h-48 bg-cover bg-center" 
+        className="h-72 bg-cover bg-center" 
         style={{ backgroundImage: `url('${imageUrl}')` }}
       />
       <CardContent className="p-6">
