@@ -137,7 +137,11 @@ const EventDetail = () => {
             {event.registrationUrl && event.registrationUrl.trim() ? (
               <Button 
                 className="w-full bg-[#FF5500] hover:bg-opacity-90 text-white"
-                onClick={() => event.registrationUrl && window.open(event.registrationUrl, '_blank')}
+                onClick={() => {
+                  if (event.registrationUrl) {
+                    window.location.href = event.registrationUrl;
+                  }
+                }}
               >
                 S'inscrire à l'événement <ExternalLink className="ml-2 h-4 w-4" />
               </Button>

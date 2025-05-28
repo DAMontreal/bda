@@ -203,9 +203,25 @@ const Events = () => {
                         )}
                       </Button>
                       
-                      <Button variant="default" className="bg-[#FF5500]">
-                        S'inscrire à l'événement
-                      </Button>
+                      {event.registrationUrl && event.registrationUrl.trim() ? (
+                        <Button 
+                          variant="default" 
+                          className="bg-[#FF5500]"
+                          onClick={() => {
+                            if (event.registrationUrl) {
+                              window.location.href = event.registrationUrl;
+                            }
+                          }}
+                        >
+                          S'inscrire à l'événement
+                        </Button>
+                      ) : (
+                        <Link href={`/events/${event.id}`}>
+                          <Button variant="default" className="bg-[#FF5500]">
+                            Voir l'événement
+                          </Button>
+                        </Link>
+                      )}
                     </div>
                     
                     {isAdmin && (
