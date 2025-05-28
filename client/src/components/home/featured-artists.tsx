@@ -6,9 +6,8 @@ import { User } from "@shared/schema";
 import { ArrowRight } from "lucide-react";
 
 const FeaturedArtists = () => {
-  const { data: artists, isLoading, isError } = useQuery<User[]>({
+  const { data: artists, isLoading } = useQuery<User[]>({
     queryKey: ["/api/users?approved=true"],
-    retry: false
   });
 
   // Get only first 4 artists
@@ -33,16 +32,12 @@ const FeaturedArtists = () => {
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8">
             {[...Array(4)].map((_, i) => (
               <div key={i} className="bg-white rounded-lg overflow-hidden shadow-md p-6">
-                <div className="h-48 bg-gray-200 animate-pulse mb-4 rounded"></div>
+                <div className="h-72 bg-gray-200 animate-pulse mb-4 rounded"></div>
                 <div className="h-6 bg-gray-200 animate-pulse mb-2 w-3/4 rounded"></div>
                 <div className="h-4 bg-gray-200 animate-pulse mb-4 w-1/2 rounded"></div>
                 <div className="h-8 bg-gray-200 animate-pulse rounded"></div>
               </div>
             ))}
-          </div>
-        ) : isError ? (
-          <div className="text-center py-12">
-            <p className="text-gray-500 mb-4">Impossible de charger les artistes pour le moment</p>
           </div>
         ) : featuredArtists.length > 0 ? (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8">
