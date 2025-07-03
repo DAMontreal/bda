@@ -43,10 +43,7 @@ const Login = () => {
   const onSubmit = async (data: LoginFormValues) => {
     try {
       await login(data.username, data.password);
-      // Force la navigation après la connexion en cas de problème avec le navigateur automatique
-      setTimeout(() => {
-        window.location.href = "/dashboard";
-      }, 500);
+      // Redirect is handled by the auth provider
     } catch (error) {
       console.error("Login error:", error);
     }
@@ -95,6 +92,12 @@ const Login = () => {
               <Button type="submit" className="w-full bg-dam-orange hover:bg-[#e88a1e]" disabled={isSubmitting}>
                 {isSubmitting ? "Connexion en cours..." : "Se connecter"}
               </Button>
+              
+              <div className="text-center text-sm mb-4">
+                <Link href="/password-reset" className="text-dam-orange hover:underline">
+                  Mot de passe oublié ?
+                </Link>
+              </div>
               
               <div className="text-center text-sm">
                 Vous n'avez pas de compte?{" "}
