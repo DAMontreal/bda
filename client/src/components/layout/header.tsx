@@ -31,46 +31,43 @@ const Header = () => {
   // Labels for different languages
   const languageLabels = {
     FR: {
-      home: "Accueil",
+      home: "Bottin",
       artists: "Artistes",
       events: "Événements",
-      trocdam: "TROC'DAM",
+      trocdam: "Troc'Dam",
       login: "Connexion",
       register: "Inscription",
       profile: "Mon profil",
       messages: "Messages",
       admin: "Administration",
       logout: "Déconnexion",
-      search: "Rechercher",
-      backToSite: "Retour au site"
+      search: "Rechercher"
     },
     EN: {
-      home: "Home",
+      home: "Directory",
       artists: "Artists",
       events: "Events",
-      trocdam: "TROC'DAM",
+      trocdam: "Troc'Dam",
       login: "Login",
       register: "Register",
       profile: "My Profile",
       messages: "Messages",
       admin: "Administration",
       logout: "Logout",
-      search: "Search",
-      backToSite: "Back to site"
+      search: "Search"
     },
     ES: {
-      home: "Inicio",
+      home: "Directorio",
       artists: "Artistas",
       events: "Eventos",
-      trocdam: "TROC'DAM",
+      trocdam: "Troc'Dam",
       login: "Iniciar sesión",
       register: "Registrarse",
       profile: "Mi Perfil",
       messages: "Mensajes",
       admin: "Administración",
       logout: "Cerrar sesión",
-      search: "Buscar",
-      backToSite: "Volver al sitio"
+      search: "Buscar"
     }
   };
 
@@ -81,7 +78,6 @@ const Header = () => {
     { path: "/artists", label: labels.artists },
     { path: "/events", label: labels.events },
     { path: "/trocdam", label: labels.trocdam },
-    { path: "https://www.diversiteartistique.org", label: labels.backToSite, external: true },
   ];
 
   return (
@@ -89,35 +85,22 @@ const Header = () => {
       <div className="container mx-auto px-4">
         <div className="flex justify-between items-center py-3">
           <div className="flex items-center">
-            <Link href="/" className="flex items-center">
-              <div className="bg-[#FF5500] text-white font-bold text-2xl p-2 rounded">DAM</div>
-              <span className="ml-2 text-black font-bold text-lg">Bottin des artistes</span>
-            </Link>
+            <a href="https://www.diversiteartistique.org" target="_blank" rel="noopener noreferrer" className="flex items-center">
+              <img src="/dam-logo-new.png" alt="Diversité Artistique Montréal" className="h-14 w-auto max-w-[200px] object-contain" />
+            </a>
           </div>
 
           <nav className="hidden md:flex items-center space-x-6">
             {menuItems.map((item) => (
-              item.external ? (
-                <a 
-                  key={item.path}
-                  href={item.path}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="font-medium hover:text-[#FF5500] transition-colors"
-                >
-                  {item.label}
-                </a>
-              ) : (
-                <Link
-                  key={item.path}
-                  href={item.path}
-                  className={`font-medium hover:text-[#FF5500] transition-colors ${
-                    location === item.path ? "text-[#FF5500]" : ""
-                  }`}
-                >
-                  {item.label}
-                </Link>
-              )
+              <Link
+                key={item.path}
+                href={item.path}
+                className={`font-medium hover:text-[#FF5500] transition-colors ${
+                  location === item.path ? "text-[#FF5500]" : ""
+                }`}
+              >
+                {item.label}
+              </Link>
             ))}
           </nav>
 
@@ -190,27 +173,15 @@ const Header = () => {
           <div className="container mx-auto px-4 py-3">
             <nav className="flex flex-col space-y-3">
               {menuItems.map((item) => (
-                item.external ? (
-                  <a
-                    key={item.path}
-                    href={item.path}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="font-medium py-2 hover:text-[#FF5500] transition-colors"
-                  >
-                    {item.label}
-                  </a>
-                ) : (
-                  <Link
-                    key={item.path}
-                    href={item.path}
-                    className={`font-medium py-2 hover:text-[#FF5500] transition-colors ${
-                      location === item.path ? "text-[#FF5500]" : ""
-                    }`}
-                  >
-                    {item.label}
-                  </Link>
-                )
+                <Link
+                  key={item.path}
+                  href={item.path}
+                  className={`font-medium py-2 hover:text-[#FF5500] transition-colors ${
+                    location === item.path ? "text-[#FF5500]" : ""
+                  }`}
+                >
+                  {item.label}
+                </Link>
               ))}
               
               {!isAuthenticated ? (
