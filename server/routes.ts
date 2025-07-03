@@ -21,6 +21,9 @@ declare module "express-session" {
   interface SessionData {
     userId: number;
     isAdmin: boolean;
+    passwordResetToken?: string;
+    passwordResetEmail?: string;
+    passwordResetExpiry?: Date;
   }
 }
 
@@ -140,8 +143,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "Email already exists" });
       }
       
-      // Create user
-      const user = await storage.createUser(userData);
+      // Utiliser l'image par défaut fournie par le client ou en générer une
+      let profileImagePath = `/default-profile-images/bottin${Math.floor(Math.random() * 4) + 1}.jpg`;
+      
+      // Si le client a envoyé un nom d'image spécifique, l'utiliser
+      if (req.body.defaultProfileImage) {
+        profileImagePath = `/default-profile-images/${req.body.defaultProfileImage}`;
+      }
+      
+      // Create user with profile image
+      const user = await storage.createUser({
+        ...userData,
+        profileImage: profileImagePath
+      });
       
       // Don't return password
       const { password, ...userWithoutPassword } = user;
@@ -179,7 +193,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // Set session
       req.session.userId = user.id;
-      req.session.isAdmin = user.isAdmin;
+      req.session.isAdmin = user.isAdmin || false;
       
       // Don't return password
       const { password: _, ...userWithoutPassword } = user;
@@ -217,6 +231,90 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       res.status(200).json(userWithoutPassword);
     } catch (error) {
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  // Password reset request
+  app.post("/api/auth/password-reset-request", async (req, res) => {
+    try {
+      const { email } = req.body;
+      
+      if (!email) {
+        return res.status(400).json({ message: "Email is required" });
+      }
+
+      const user = await storage.getUserByEmail(email);
+      if (!user) {
+        // Don't reveal if email exists or not for security
+        return res.status(200).json({ message: "If this email exists, a reset link will be sent" });
+      }
+
+      // Generate a temporary reset token (in production, this should be more secure)
+      const resetToken = Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
+      const resetExpiry = new Date(Date.now() + 3600000); // 1 hour from now
+
+      // In a real implementation, you'd store this token in the database
+      // For now, we'll use session storage temporarily
+      (req.session as any).passwordResetToken = resetToken;
+      (req.session as any).passwordResetEmail = email;
+      (req.session as any).passwordResetExpiry = resetExpiry;
+
+      console.log(`Password reset requested for ${email}, token: ${resetToken}`);
+
+      res.status(200).json({ 
+        message: "If this email exists, a reset link will be sent",
+        // For development only - remove in production
+        resetToken: resetToken 
+      });
+    } catch (error) {
+      console.error("Error requesting password reset:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  // Password reset confirmation
+  app.post("/api/auth/password-reset", async (req, res) => {
+    try {
+      const { token, newPassword } = req.body;
+      
+      if (!token || !newPassword) {
+        return res.status(400).json({ message: "Token and new password are required" });
+      }
+
+      // Verify token
+      if ((req.session as any).passwordResetToken !== token || 
+          !(req.session as any).passwordResetExpiry || 
+          new Date() > new Date((req.session as any).passwordResetExpiry)) {
+        return res.status(400).json({ message: "Invalid or expired reset token" });
+      }
+
+      const email = (req.session as any).passwordResetEmail;
+      if (!email) {
+        return res.status(400).json({ message: "Invalid reset session" });
+      }
+
+      const user = await storage.getUserByEmail(email);
+      if (!user) {
+        return res.status(404).json({ message: "User not found" });
+      }
+
+      // Hash the new password
+      const bcrypt = require('bcryptjs');
+      const saltRounds = 10;
+      const hashedPassword = await bcrypt.hash(newPassword, saltRounds);
+
+      // Update user password
+      await storage.updateUser(user.id, { password: hashedPassword });
+
+      // Clear reset session data
+      delete (req.session as any).passwordResetToken;
+      delete (req.session as any).passwordResetEmail;
+      delete (req.session as any).passwordResetExpiry;
+
+      res.status(200).json({ message: "Password reset successfully" });
+    } catch (error) {
+      console.error("Error resetting password:", error);
       res.status(500).json({ message: "Internal server error" });
     }
   });
@@ -778,11 +876,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const eventData = insertEventSchema.parse(req.body);
       
       // Convertir la chaîne ISO en objet Date si nécessaire
-      if (typeof eventData.eventDate === 'string') {
-        eventData.eventDate = new Date(eventData.eventDate);
-      }
+      const updateData = {
+        ...eventData,
+        eventDate: typeof eventData.eventDate === 'string' ? new Date(eventData.eventDate) : eventData.eventDate
+      } as Partial<Event>;
       
-      const updatedEvent = await storage.updateEvent(id, eventData);
+      const updatedEvent = await storage.updateEvent(id, updateData);
       
       if (!updatedEvent) {
         return res.status(404).json({ message: "Event not found" });
@@ -867,7 +966,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/troc", requireAuth, async (req, res) => {
     try {
       // Only approved users can create ads
-      const user = await storage.getUser(req.session.userId);
+      const user = await storage.getUser(req.session.userId!);
       
       if (!user || !user.isApproved) {
         return res.status(403).json({ message: "Only approved artists can create ads" });
@@ -954,7 +1053,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Message routes
   app.get("/api/messages", requireAuth, async (req, res) => {
     try {
-      const messages = await storage.getMessages(req.session.userId);
+      const messages = await storage.getMessages(req.session.userId!);
       
       res.status(200).json(messages);
     } catch (error) {
