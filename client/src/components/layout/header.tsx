@@ -84,9 +84,9 @@ const Header = () => {
     <header className="fixed top-0 left-0 right-0 bg-white shadow-md z-50">
       <div className="container mx-auto px-4">
         <div className="flex justify-between items-center py-3">
-          <div className="flex items-center">
+          <div className="flex items-center ml-6">
             <a href="https://www.diversiteartistique.org" target="_blank" rel="noopener noreferrer" className="flex items-center">
-              <img src="/dam-logo-new.png" alt="Diversité Artistique Montréal" className="h-14 w-auto max-w-[200px] object-contain" />
+              <img src="/dam-logo-new.png" alt="Diversité Artistique Montréal" className="w-auto h-auto object-contain" />
             </a>
           </div>
 
@@ -95,7 +95,7 @@ const Header = () => {
               <Link
                 key={item.path}
                 href={item.path}
-                className={`font-medium hover:text-[#FF5500] transition-colors ${
+                className={`text-lg font-medium hover:text-[#F89720] transition-colors ${
                   location === item.path ? "text-[#FF5500]" : ""
                 }`}
               >
@@ -121,12 +121,12 @@ const Header = () => {
             {!isAuthenticated ? (
               <div className="hidden md:flex items-center space-x-2">
                 <Link href="/login">
-                  <Button variant="ghost" className="font-medium">
+                  <Button variant="ghost" className="text-lg font-medium">
                     {labels.login}
                   </Button>
                 </Link>
                 <Link href="/register">
-                  <Button className="bg-[#FF5500] hover:bg-opacity-90 text-white">
+                  <Button className="text-lg bg-[#FF5500] hover:bg-opacity-90 text-white">
                     {labels.register}
                   </Button>
                 </Link>
@@ -135,18 +135,18 @@ const Header = () => {
               <div className="hidden md:flex items-center space-x-2">
                 {isAdmin && (
                   <Link href="/admin">
-                    <Button variant="outline" size="sm">
+                    <Button variant="outline" className="text-lg">
                       {labels.admin}
                     </Button>
                   </Link>
                 )}
                 <Link href="/dashboard">
-                  <Button variant="ghost" className="font-medium">
+                  <Button variant="ghost" className="text-lg font-medium">
                     {labels.profile}
                   </Button>
                 </Link>
                 <Link href="/messages">
-                  <Button variant="ghost" className="font-medium flex items-center">
+                  <Button variant="ghost" className="text-lg font-medium flex items-center">
                     {labels.messages}
                     <MessageBadge />
                   </Button>
@@ -154,7 +154,7 @@ const Header = () => {
                 <Button
                   variant="outline"
                   onClick={() => logout()}
-                  className="font-medium"
+                  className="text-lg font-medium"
                 >
                   {labels.logout}
                 </Button>
@@ -176,7 +176,7 @@ const Header = () => {
                 <Link
                   key={item.path}
                   href={item.path}
-                  className={`font-medium py-2 hover:text-[#FF5500] transition-colors ${
+                  className={`text-lg font-medium py-2 hover:text-[#F89720] transition-colors ${
                     location === item.path ? "text-[#FF5500]" : ""
                   }`}
                 >
@@ -188,12 +188,12 @@ const Header = () => {
                 <>
                   <Link
                     href="/login"
-                    className="font-medium py-2 hover:text-[#FF5500] transition-colors"
+                    className="text-lg font-medium py-2 hover:text-[#F89720] transition-colors"
                   >
                     {labels.login}
                   </Link>
                   <Link href="/register">
-                    <Button className="w-full bg-[#FF5500] hover:bg-opacity-90 text-white">
+                    <Button className="w-full text-lg bg-[#FF5500] hover:bg-opacity-90 text-white">
                       {labels.register}
                     </Button>
                   </Link>
@@ -202,13 +202,13 @@ const Header = () => {
                 <>
                   <Link
                     href="/dashboard"
-                    className="font-medium py-2 hover:text-[#FF5500] transition-colors"
+                    className="text-lg font-medium py-2 hover:text-[#F89720] transition-colors"
                   >
                     {labels.profile}
                   </Link>
                   <Link
                     href="/messages"
-                    className="font-medium py-2 hover:text-[#FF5500] transition-colors flex items-center"
+                    className="text-lg font-medium py-2 hover:text-[#F89720] transition-colors flex items-center"
                   >
                     {labels.messages}
                     <MessageBadge />
@@ -216,7 +216,7 @@ const Header = () => {
                   {isAdmin && (
                     <Link
                       href="/admin"
-                      className="font-medium py-2 hover:text-[#FF5500] transition-colors"
+                      className="text-lg font-medium py-2 hover:text-[#F89720] transition-colors"
                     >
                       {labels.admin}
                     </Link>
@@ -224,7 +224,7 @@ const Header = () => {
                   <Button
                     variant="outline"
                     onClick={() => logout()}
-                    className="w-full"
+                    className="w-full text-lg"
                   >
                     {labels.logout}
                   </Button>
