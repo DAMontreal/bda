@@ -16,6 +16,7 @@ import {
 import { StorageBucket, uploadFile, deleteFile } from "./supabase";
 import fileUpload from "express-fileupload";
 import * as fs from 'fs';
+import { sendPasswordResetEmail } from "./email-service";
 
 declare module "express-session" {
   interface SessionData {
@@ -254,18 +255,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const resetToken = Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
       const resetExpiry = new Date(Date.now() + 3600000); // 1 hour from now
 
-      // In a real implementation, you'd store this token in the database
-      // For now, we'll use session storage temporarily
+      // Store token in session
       (req.session as any).passwordResetToken = resetToken;
       (req.session as any).passwordResetEmail = email;
       (req.session as any).passwordResetExpiry = resetExpiry;
 
-      console.log(`Password reset requested for ${email}, token: ${resetToken}`);
+      // Send email with reset token
+      try {
+        await sendPasswordResetEmail(user.email, user.firstName, resetToken);
+        console.log(`Password reset email sent to ${email}`);
+      } catch (emailError) {
+        console.error(`Failed to send password reset email to ${email}:`, emailError);
+        // Still continue with success response for security reasons
+      }
 
       res.status(200).json({ 
-        message: "If this email exists, a reset link will be sent",
-        // For development only - remove in production
-        resetToken: resetToken 
+        message: "If this email exists, a reset link will be sent"
       });
     } catch (error) {
       console.error("Error requesting password reset:", error);
