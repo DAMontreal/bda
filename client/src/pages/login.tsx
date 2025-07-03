@@ -93,17 +93,18 @@ const Login = () => {
                 {isSubmitting ? "Connexion en cours..." : "Se connecter"}
               </Button>
               
-              <div className="text-center text-sm mb-4">
-                <Link href="/password-reset" className="text-dam-orange hover:underline">
-                  Mot de passe oublié ?
-                </Link>
-              </div>
-              
-              <div className="text-center text-sm">
-                Vous n'avez pas de compte?{" "}
-                <Link href="/register" className="text-dam-orange hover:underline">
-                  S'inscrire
-                </Link>
+              <div className="text-center text-sm space-y-2">
+                <div>
+                  <Link href="/password-reset" className="text-dam-orange hover:underline">
+                    Mot de passe oublié?
+                  </Link>
+                </div>
+                <div>
+                  Vous n'avez pas de compte?{" "}
+                  <Link href="/register" className="text-dam-orange hover:underline">
+                    S'inscrire
+                  </Link>
+                </div>
               </div>
             </form>
           </Form>
