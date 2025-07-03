@@ -19,6 +19,7 @@ import TrocDam from "@/pages/trocdam";
 import About from "@/pages/about";
 import Register from "@/pages/register";
 import Login from "@/pages/login";
+import PasswordReset from "@/pages/password-reset";
 import Dashboard from "@/pages/dashboard";
 import Messages from "@/pages/messages";
 import Admin from "@/pages/admin";
@@ -42,6 +43,7 @@ function Router() {
           <Route path="/about" component={About} />
           <Route path="/register" component={Register} />
           <Route path="/login" component={Login} />
+          <Route path="/password-reset" component={PasswordReset} />
           <Route path="/dashboard" component={Dashboard} />
           <Route path="/messages" component={Messages} />
           <Route path="/messages/:userId" component={Messages} />
