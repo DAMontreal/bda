@@ -17,6 +17,7 @@ import { StorageBucket, uploadFile, deleteFile } from "./supabase";
 import fileUpload from "express-fileupload";
 import * as fs from 'fs';
 import { sendPasswordResetEmail } from "./email-service";
+import { resizeProfileImage } from "./image-utils";
 
 declare module "express-session" {
   interface SessionData {
@@ -97,6 +98,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   } else {
     console.log("Mode développement: utilisation du stockage mémoire pour les sessions");
   }
+  
+
   
   // Appliquer la configuration des sessions
   app.use(session(sessionConfig));
@@ -996,9 +999,68 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!user || !user.isApproved) {
         return res.status(403).json({ message: "Only approved artists can create ads" });
       }
+
+      let imageUrl = null;
+      
+      // Handle image upload if provided using express-fileupload
+      if (req.files && req.files.image) {
+        try {
+          const imageFile = req.files.image as fileUpload.UploadedFile;
+          
+          console.log('Image file received:', {
+            name: imageFile.name,
+            size: imageFile.size,
+            mimetype: imageFile.mimetype,
+            hasData: !!imageFile.data,
+            dataLength: imageFile.data ? imageFile.data.length : 0
+          });
+          
+          // Use the original image data directly
+          let imageBuffer = imageFile.data;
+          
+          // For express-fileupload, the data might be in tempFilePath
+          if (!imageBuffer && imageFile.tempFilePath) {
+            console.log('Reading from temp file:', imageFile.tempFilePath);
+            const fs = require('fs');
+            imageBuffer = fs.readFileSync(imageFile.tempFilePath);
+          }
+          
+          // Only try to resize if we have a valid buffer
+          if (imageBuffer && imageBuffer.length > 0) {
+            try {
+              imageBuffer = await resizeProfileImage(imageBuffer);
+              console.log('Image resized successfully');
+            } catch (resizeError) {
+              console.warn('Could not resize image, using original:', resizeError.message);
+              // Keep original buffer if resize fails
+            }
+          } else {
+            console.error('No valid image buffer found');
+            throw new Error('No valid image data received');
+          }
+          
+          const fileName = `troc-ads/${Date.now()}-${Math.random().toString(36).substring(7)}.jpg`;
+          
+          imageUrl = await uploadFile(
+            StorageBucket.MEDIA,
+            fileName,
+            imageBuffer,
+            imageFile.mimetype || 'image/jpeg'
+          );
+          
+          console.log('Image uploaded successfully:', imageUrl);
+        } catch (uploadError) {
+          console.error('Error uploading image:', uploadError);
+          console.error('Stack trace:', uploadError.stack);
+          // Continue without image if upload fails
+        }
+      }
       
       const adData = insertTrocAdSchema.parse({
-        ...req.body,
+        title: req.body.title,
+        description: req.body.description,
+        category: req.body.category,
+        imageUrl,
         userId: req.session.userId,
       });
       
@@ -1009,6 +1071,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (error instanceof z.ZodError) {
         return res.status(400).json({ message: "Invalid input", errors: error.errors });
       }
+      console.error('Error creating troc ad:', error);
       res.status(500).json({ message: "Internal server error" });
     }
   });
