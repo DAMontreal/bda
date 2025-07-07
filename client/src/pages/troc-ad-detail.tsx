@@ -1,20 +1,35 @@
-import { useQuery } from "@tanstack/react-query";
-import { useRoute } from "wouter";
+import { useQuery, useMutation } from "@tanstack/react-query";
+import { useRoute, useLocation } from "wouter";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
-import { ArrowLeft, MessageSquare } from "lucide-react";
+import { ArrowLeft, MessageSquare, Edit, Trash2 } from "lucide-react";
 import { Link } from "wouter";
 import { TrocAd, User } from "@shared/schema";
 import { formatDateWithTime, getTrocCategoryLabel } from "@/lib/utils";
 import { useAuth } from "@/hooks/use-auth";
 import FormattedText from "@/components/ui/formatted-text";
+import { apiRequest, queryClient } from "@/lib/queryClient";
+import { useToast } from "@/hooks/use-toast";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 
 const TrocAdDetail = () => {
   const [, params] = useRoute("/troc/:id");
+  const [, setLocation] = useLocation();
   const adId = params?.id;
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, isAdmin } = useAuth();
+  const { toast } = useToast();
 
   // Fetch the specific ad
   const { data: ad, isLoading: adLoading } = useQuery<TrocAd>({
@@ -26,6 +41,31 @@ const TrocAdDetail = () => {
   const { data: user, isLoading: userLoading } = useQuery<User>({
     queryKey: [`/api/users/${ad?.userId}`],
     enabled: !!ad?.userId,
+  });
+
+  // Mutation for deleting ad
+  const deleteAdMutation = useMutation({
+    mutationFn: async (adId: number) => {
+      const response = await apiRequest('DELETE', `/api/troc/${adId}`);
+      if (!response.ok) {
+        throw new Error('Échec de la suppression');
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/troc'] });
+      toast({
+        title: "Annonce supprimée",
+        description: "L'annonce a été supprimée avec succès.",
+      });
+      setLocation("/trocdam");
+    },
+    onError: () => {
+      toast({
+        title: "Erreur",
+        description: "Impossible de supprimer l'annonce.",
+        variant: "destructive",
+      });
+    },
   });
 
   const getInitials = (firstName: string, lastName: string) => {
@@ -90,6 +130,16 @@ const TrocAdDetail = () => {
 
       <Card>
         <CardContent className="p-6">
+          {ad.imageUrl && (
+            <div className="mb-6">
+              <img
+                src={ad.imageUrl}
+                alt={ad.title}
+                className="w-full max-w-3xl mx-auto h-96 object-cover rounded-lg shadow-md"
+              />
+            </div>
+          )}
+
           <div className="flex flex-col sm:flex-row justify-between items-start mb-6">
             <div className="flex-1">
               <h1 className="text-2xl font-bold mb-3">{ad.title}</h1>
@@ -97,6 +147,54 @@ const TrocAdDetail = () => {
                 {getTrocCategoryLabel(ad.category)}
               </Badge>
             </div>
+            
+            {/* Admin controls */}
+            {isAdmin && (
+              <div className="flex gap-2 mt-4 sm:mt-0">
+                <Link href={`/troc/${ad.id}/edit`}>
+                  <Button 
+                    size="sm" 
+                    variant="outline" 
+                    className="flex items-center gap-2"
+                    title="Modifier l'annonce"
+                  >
+                    <Edit className="h-4 w-4" />
+                    Modifier
+                  </Button>
+                </Link>
+                
+                <AlertDialog>
+                  <AlertDialogTrigger asChild>
+                    <Button 
+                      size="sm" 
+                      variant="outline" 
+                      className="text-red-600 hover:text-red-700 hover:bg-red-50 flex items-center gap-2"
+                      title="Supprimer l'annonce"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                      Supprimer
+                    </Button>
+                  </AlertDialogTrigger>
+                  <AlertDialogContent>
+                    <AlertDialogHeader>
+                      <AlertDialogTitle>Supprimer l'annonce</AlertDialogTitle>
+                      <AlertDialogDescription>
+                        Êtes-vous sûr de vouloir supprimer cette annonce ? Cette action ne peut pas être annulée.
+                      </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                      <AlertDialogCancel>Annuler</AlertDialogCancel>
+                      <AlertDialogAction
+                        onClick={() => deleteAdMutation.mutate(ad.id)}
+                        className="bg-red-600 hover:bg-red-700"
+                      >
+                        Supprimer
+                      </AlertDialogAction>
+                    </AlertDialogFooter>
+                  </AlertDialogContent>
+                </AlertDialog>
+              </div>
+            )}
           </div>
 
           <div className="mb-8">
