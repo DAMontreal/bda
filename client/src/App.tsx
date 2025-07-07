@@ -16,6 +16,7 @@ import ArtistProfile from "@/pages/artist-profile";
 import Events from "@/pages/events";
 import EventDetail from "@/pages/event-detail";
 import TrocDam from "@/pages/trocdam";
+import TrocAdDetail from "@/pages/troc-ad-detail";
 import About from "@/pages/about";
 import Register from "@/pages/register";
 import Login from "@/pages/login";
@@ -40,6 +41,7 @@ function Router() {
           <Route path="/events" component={Events} />
           <Route path="/events/:id" component={EventDetail} />
           <Route path="/trocdam" component={TrocDam} />
+          <Route path="/troc/:id" component={TrocAdDetail} />
           <Route path="/about" component={About} />
           <Route path="/register" component={Register} />
           <Route path="/login" component={Login} />
