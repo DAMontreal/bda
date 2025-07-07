@@ -968,6 +968,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.get("/api/troc/:id", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      
+      if (isNaN(id)) {
+        return res.status(400).json({ message: "Invalid ad ID" });
+      }
+      
+      const ad = await storage.getTrocAd(id);
+      
+      if (!ad) {
+        return res.status(404).json({ message: "Ad not found" });
+      }
+      
+      res.status(200).json(ad);
+    } catch (error) {
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
   app.post("/api/troc", requireAuth, async (req, res) => {
     try {
       // Only approved users can create ads
