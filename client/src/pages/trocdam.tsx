@@ -37,7 +37,7 @@ const TrocDam = () => {
           </p>
         </div>
 
-        {isAuthenticated && user?.isApproved && (
+        {isAuthenticated && user?.isApproved ? (
           <Dialog open={createAdOpen} onOpenChange={setCreateAdOpen}>
             <DialogTrigger asChild>
               <Button className="mt-4 md:mt-0 bg-[#FF5500]">
@@ -54,6 +54,12 @@ const TrocDam = () => {
               <CreateAd onSuccess={() => setCreateAdOpen(false)} />
             </DialogContent>
           </Dialog>
+        ) : (
+          <Button className="mt-4 md:mt-0 bg-[#FF5500]" asChild>
+            <a href="/register">
+              <Plus className="mr-2 h-4 w-4" /> Publier une annonce
+            </a>
+          </Button>
         )}
       </div>
 
