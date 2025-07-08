@@ -331,7 +331,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/users", async (req, res) => {
     try {
       const approved = req.query.approved === "true";
-      const users = await storage.getUsers({ isApproved: approved });
+      const unapproved = req.query.approved === "false";
+      
+      // Si aucun paramètre n'est spécifié, retourner tous les utilisateurs
+      let users;
+      if (approved) {
+        users = await storage.getUsers({ isApproved: true });
+      } else if (unapproved) {
+        users = await storage.getUsers({ isApproved: false });
+      } else {
+        users = await storage.getUsers(); // Retourne tous les utilisateurs
+      }
       
       // Don't return passwords
       const usersWithoutPasswords = users.map(({ password, ...user }) => user);
