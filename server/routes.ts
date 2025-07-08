@@ -1012,31 +1012,36 @@ export async function registerRoutes(app: Express): Promise<Server> {
             size: imageFile.size,
             mimetype: imageFile.mimetype,
             hasData: !!imageFile.data,
-            dataLength: imageFile.data ? imageFile.data.length : 0
+            dataLength: imageFile.data ? imageFile.data.length : 0,
+            hasTempFilePath: !!imageFile.tempFilePath,
+            tempFilePath: imageFile.tempFilePath,
+            hasMvFunction: !!imageFile.mv
           });
           
-          // Use the original image data directly
-          let imageBuffer = imageFile.data;
+          let imageBuffer: Buffer;
           
-          // For express-fileupload, the data might be in tempFilePath
-          if (!imageBuffer && imageFile.tempFilePath) {
-            console.log('Reading from temp file:', imageFile.tempFilePath);
-            const fs = require('fs');
-            imageBuffer = fs.readFileSync(imageFile.tempFilePath);
+          // Get image buffer from uploaded file
+          if (imageFile.data && imageFile.data.length > 0) {
+            console.log('Using imageFile.data buffer');
+            imageBuffer = imageFile.data;
+          } else {
+            throw new Error('No valid image data found');
           }
           
+          // Verify we have valid image data
+          if (!imageBuffer || imageBuffer.length === 0) {
+            throw new Error('Empty image buffer received');
+          }
+          
+          console.log('Image buffer size:', imageBuffer.length);
+          
           // Only try to resize if we have a valid buffer
-          if (imageBuffer && imageBuffer.length > 0) {
-            try {
-              imageBuffer = await resizeProfileImage(imageBuffer);
-              console.log('Image resized successfully');
-            } catch (resizeError) {
-              console.warn('Could not resize image, using original:', resizeError.message);
-              // Keep original buffer if resize fails
-            }
-          } else {
-            console.error('No valid image buffer found');
-            throw new Error('No valid image data received');
+          try {
+            imageBuffer = await resizeProfileImage(imageBuffer);
+            console.log('Image resized successfully');
+          } catch (resizeError) {
+            console.warn('Could not resize image, using original:', resizeError.message);
+            // Keep original buffer if resize fails
           }
           
           const fileName = `troc-ads/${Date.now()}-${Math.random().toString(36).substring(7)}.jpg`;

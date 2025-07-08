@@ -15,8 +15,7 @@ app.use(fileUpload({
     fileSize: 10 * 1024 * 1024 // 10MB limite de taille
   },
   abortOnLimit: true,
-  useTempFiles: true,
-  tempFileDir: '/tmp/'
+  useTempFiles: false  // Désactiver les fichiers temporaires pour utiliser la mémoire
 }));
 
 app.use((req, res, next) => {
