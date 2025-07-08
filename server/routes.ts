@@ -993,6 +993,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/troc", requireAuth, async (req, res) => {
     try {
+      
       // Only approved users can create ads
       const user = await storage.getUser(req.session.userId!);
       
@@ -1061,12 +1062,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       }
       
+      // Déterminer l'utilisateur final de l'annonce
+      let finalUserId = req.session.userId;
+      
+      // Si assignedUserId est fourni et que l'utilisateur est admin, utiliser cet utilisateur
+      if (req.body.assignedUserId && req.body.assignedUserId !== "none" && req.session.isAdmin) {
+        const assignedUser = await storage.getUser(parseInt(req.body.assignedUserId));
+        if (assignedUser && assignedUser.isApproved) {
+          finalUserId = parseInt(req.body.assignedUserId);
+        }
+      }
+
       const adData = insertTrocAdSchema.parse({
         title: req.body.title,
         description: req.body.description,
         category: req.body.category,
         imageUrl,
-        userId: req.session.userId,
+        userId: finalUserId,
       });
       
       const ad = await storage.createTrocAd(adData);
@@ -1099,8 +1111,72 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (ad.userId !== req.session.userId && !req.session.isAdmin) {
         return res.status(403).json({ message: "Forbidden" });
       }
+
+      // Préparer les données de mise à jour
+      let updateData = {
+        title: req.body.title,
+        description: req.body.description,
+        category: req.body.category,
+      } as any;
+
+      // Handle image upload
+      let imageUrl = ad.imageUrl; // Keep existing image by default
       
-      const updatedAd = await storage.updateTrocAd(id, req.body);
+      // Check if current image should be removed
+      if (req.body.removeCurrentImage === 'true') {
+        imageUrl = null;
+      }
+      
+      // Handle new image uploads
+      if (req.files && 'images' in req.files) {
+        try {
+          const imageFiles = Array.isArray(req.files.images) ? req.files.images : [req.files.images];
+          const imageFile = imageFiles[0]; // For now, take the first image (we can expand to multiple later)
+          
+          if (imageFile && imageFile.data) {
+            let imageBuffer: Buffer;
+            
+            if (Buffer.isBuffer(imageFile.data)) {
+              imageBuffer = imageFile.data;
+            } else {
+              imageBuffer = Buffer.from(imageFile.data);
+            }
+            
+            try {
+              imageBuffer = await resizeProfileImage(imageBuffer);
+              console.log('Image resized successfully');
+            } catch (resizeError) {
+              console.warn('Could not resize image, using original:', resizeError.message);
+            }
+            
+            const fileName = `troc-ads/${Date.now()}-${Math.random().toString(36).substring(7)}.jpg`;
+            
+            imageUrl = await uploadFile(
+              StorageBucket.MEDIA,
+              fileName,
+              imageBuffer,
+              imageFile.mimetype || 'image/jpeg'
+            );
+            
+            console.log('Image uploaded successfully:', imageUrl);
+          }
+        } catch (uploadError) {
+          console.error('Error uploading image:', uploadError);
+          // Continue without changing image if upload fails
+        }
+      }
+      
+      updateData.imageUrl = imageUrl;
+
+      // Si l'utilisateur est admin et qu'un assignedUserId est fourni, gérer l'attribution
+      if (req.session.isAdmin && req.body.assignedUserId && req.body.assignedUserId !== "none") {
+        const assignedUser = await storage.getUser(parseInt(req.body.assignedUserId));
+        if (assignedUser && assignedUser.isApproved) {
+          updateData.userId = parseInt(req.body.assignedUserId);
+        }
+      }
+      
+      const updatedAd = await storage.updateTrocAd(id, updateData);
       
       if (!updatedAd) {
         return res.status(404).json({ message: "Ad not found" });
