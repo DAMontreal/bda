@@ -8,17 +8,18 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { insertTrocAdSchema, TrocAd } from "@shared/schema";
+import { insertTrocAdSchema, TrocAd, User } from "@shared/schema";
 import { z } from "zod";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useAuth } from "@/hooks/use-auth";
-import { ArrowLeft, Save } from "lucide-react";
+import { ArrowLeft, Save, Upload, X } from "lucide-react";
 import { trocCategories } from "@/lib/utils";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 
-const editTrocAdSchema = insertTrocAdSchema.omit({ userId: true }).extend({
+const editTrocAdSchema = insertTrocAdSchema.omit({ userId: true, imageUrl: true }).extend({
   id: z.number(),
+  assignedUserId: z.string().optional(),
 });
 
 type EditTrocAdForm = z.infer<typeof editTrocAdSchema>;
@@ -26,17 +27,25 @@ type EditTrocAdForm = z.infer<typeof editTrocAdSchema>;
 export default function EditTrocAdPage() {
   const [, params] = useRoute("/troc/:id/edit");
   const [, setLocation] = useLocation();
-  const { isAdmin } = useAuth();
+  const { isAdmin, isLoading: authLoading } = useAuth();
   const { toast } = useToast();
+  const [selectedImages, setSelectedImages] = useState<File[]>([]);
+  const [currentImage, setCurrentImage] = useState<string | null>(null);
+
+  // Fetch users for admin assignment
+  const { data: users = [] } = useQuery<User[]>({
+    queryKey: ["/api/users"],
+    enabled: isAdmin
+  });
 
   const adId = params?.id ? parseInt(params.id) : null;
 
-  // Redirect if not admin
+  // Redirect if not admin (but wait for auth to load)
   useEffect(() => {
-    if (!isAdmin) {
+    if (!authLoading && !isAdmin) {
       setLocation("/");
     }
-  }, [isAdmin, setLocation]);
+  }, [isAdmin, authLoading, setLocation]);
 
   // Fetch the ad data
   const { data: ad, isLoading } = useQuery<TrocAd>({
@@ -61,17 +70,64 @@ export default function EditTrocAdPage() {
         title: ad.title,
         description: ad.description,
         category: ad.category,
+        assignedUserId: ad.userId.toString(),
       });
+      setCurrentImage(ad.imageUrl || null);
     }
   }, [ad, form]);
 
+  const handleImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files || []);
+    const imageFiles = files.filter(file => file.type.startsWith('image/'));
+    
+    // Limit to 5 images total (considering current image and selected images)
+    const currentImageCount = currentImage ? 1 : 0;
+    const totalImages = currentImageCount + selectedImages.length + imageFiles.length;
+    if (totalImages > 5) {
+      toast({
+        title: "Limite d'images atteinte",
+        description: "Vous pouvez uploader maximum 5 images au total",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    setSelectedImages(prev => [...prev, ...imageFiles]);
+  };
+
+  const removeImage = (index: number) => {
+    setSelectedImages(prev => prev.filter((_, i) => i !== index));
+  };
+
+  const removeCurrentImage = () => {
+    setCurrentImage(null);
+  };
+
   const updateAdMutation = useMutation({
     mutationFn: async (data: EditTrocAdForm) => {
-      const response = await apiRequest('PUT', `/api/troc/${data.id}`, {
-        title: data.title,
-        description: data.description,
-        category: data.category,
+      const formData = new FormData();
+      formData.append('title', data.title);
+      formData.append('description', data.description);
+      formData.append('category', data.category);
+      if (data.assignedUserId) {
+        formData.append('assignedUserId', data.assignedUserId);
+      }
+      
+      // Add selected images
+      selectedImages.forEach((image, index) => {
+        formData.append(`images`, image);
       });
+      
+      // Indicate if current image should be removed
+      if (currentImage === null && ad?.imageUrl) {
+        formData.append('removeCurrentImage', 'true');
+      }
+
+      const response = await fetch(`/api/troc/${data.id}`, {
+        method: 'PUT',
+        body: formData,
+      });
+      
       if (!response.ok) {
         throw new Error('Échec de la modification');
       }
@@ -98,6 +154,17 @@ export default function EditTrocAdPage() {
   const onSubmit = (data: EditTrocAdForm) => {
     updateAdMutation.mutate(data);
   };
+
+  if (authLoading) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-orange-500 mx-auto"></div>
+          <p className="mt-4 text-gray-600">Vérification des permissions...</p>
+        </div>
+      </div>
+    );
+  }
 
   if (!isAdmin) {
     return null;
@@ -186,6 +253,107 @@ export default function EditTrocAdPage() {
                       {form.formState.errors.category.message}
                     </p>
                   )}
+                </div>
+
+                {/* Admin User Assignment */}
+                <div>
+                  <Label htmlFor="assignedUserId">Attribué à</Label>
+                  <Select
+                    value={form.watch("assignedUserId")}
+                    onValueChange={(value) => form.setValue("assignedUserId", value)}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Sélectionnez un membre" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">Aucune attribution spécifique</SelectItem>
+                      {users.filter(u => u.isApproved).map(user => (
+                        <SelectItem key={user.id} value={user.id.toString()}>
+                          {user.firstName} {user.lastName} (@{user.username})
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <p className="text-sm text-gray-600 mt-1">
+                    Vous pouvez modifier l'attribution de cette annonce à un autre membre
+                  </p>
+                </div>
+
+                {/* Image Upload Section */}
+                <div>
+                  <Label>Images</Label>
+                  
+                  {/* Current Image */}
+                  {currentImage && (
+                    <div className="mb-4">
+                      <p className="text-sm text-gray-600 mb-2">Image actuelle :</p>
+                      <div className="relative inline-block">
+                        <img 
+                          src={currentImage} 
+                          alt="Image actuelle" 
+                          className="w-32 h-32 object-cover rounded-lg border"
+                        />
+                        <Button
+                          type="button"
+                          variant="destructive"
+                          size="sm"
+                          className="absolute -top-2 -right-2 h-6 w-6 rounded-full p-0"
+                          onClick={removeCurrentImage}
+                        >
+                          <X className="h-3 w-3" />
+                        </Button>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Selected Images Preview */}
+                  {selectedImages.length > 0 && (
+                    <div className="mb-4">
+                      <p className="text-sm text-gray-600 mb-2">Nouvelles images :</p>
+                      <div className="flex flex-wrap gap-2">
+                        {selectedImages.map((image, index) => (
+                          <div key={index} className="relative">
+                            <img
+                              src={URL.createObjectURL(image)}
+                              alt={`Aperçu ${index + 1}`}
+                              className="w-20 h-20 object-cover rounded-lg border"
+                            />
+                            <Button
+                              type="button"
+                              variant="destructive"
+                              size="sm"
+                              className="absolute -top-2 -right-2 h-6 w-6 rounded-full p-0"
+                              onClick={() => removeImage(index)}
+                            >
+                              <X className="h-3 w-3" />
+                            </Button>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Upload Button */}
+                  <div className="flex items-center gap-4">
+                    <Input
+                      type="file"
+                      accept="image/*"
+                      multiple
+                      onChange={handleImageSelect}
+                      className="hidden"
+                      id="image-upload"
+                    />
+                    <Label
+                      htmlFor="image-upload"
+                      className="flex items-center gap-2 bg-gray-100 hover:bg-gray-200 px-4 py-2 rounded-lg cursor-pointer transition-colors"
+                    >
+                      <Upload className="h-4 w-4" />
+                      Ajouter des images
+                    </Label>
+                    <span className="text-sm text-gray-500">
+                      Maximum 5 images (formats: JPG, PNG, GIF)
+                    </span>
+                  </div>
                 </div>
 
                 <div>
