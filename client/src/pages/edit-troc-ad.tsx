@@ -267,9 +267,10 @@ export default function EditTrocAdPage() {
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="none">Aucune attribution spécifique</SelectItem>
-                      {users.filter(u => u.isApproved).map(user => (
+                      {users.map(user => (
                         <SelectItem key={user.id} value={user.id.toString()}>
                           {user.firstName} {user.lastName} (@{user.username})
+                          {!user.isApproved && <span className="text-gray-500 ml-2">(En attente)</span>}
                         </SelectItem>
                       ))}
                     </SelectContent>
