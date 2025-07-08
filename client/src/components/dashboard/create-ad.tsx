@@ -2,17 +2,19 @@ import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Upload, X } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
 import { queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/use-auth";
 import { getTrocCategoryLabel, trocCategories } from "@/lib/utils";
+import type { User } from "@shared/schema";
 
 interface CreateAdProps {
   onSuccess?: () => void;
@@ -24,14 +26,24 @@ const adSchema = z.object({
   description: z.string().min(1, "La description est requise"),
   category: z.string().min(1, "La catégorie est requise"),
   contactPreference: z.string().optional(),
+  assignedUserId: z.string().optional(),
+  image: z.any().optional(),
 });
 
 type AdFormValues = z.infer<typeof adSchema>;
 
 const CreateAd = ({ onSuccess }: CreateAdProps) => {
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [selectedImage, setSelectedImage] = useState<File | null>(null);
+  const [imagePreview, setImagePreview] = useState<string | null>(null);
   const { toast } = useToast();
-  const { user } = useAuth();
+  const { user, isAdmin } = useAuth();
+
+  // Fetch users for admin assignment
+  const { data: users = [] } = useQuery<User[]>({
+    queryKey: ["/api/users"],
+    enabled: isAdmin
+  });
 
   // Initialize form
   const form = useForm<AdFormValues>({
@@ -41,18 +53,67 @@ const CreateAd = ({ onSuccess }: CreateAdProps) => {
       description: "",
       category: "",
       contactPreference: "message",
+      assignedUserId: "",
     },
   });
+
+  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      if (file.size > 5 * 1024 * 1024) { // 5MB limit
+        toast({
+          variant: "destructive",
+          title: "Erreur",
+          description: "L'image ne doit pas dépasser 5 MB",
+        });
+        return;
+      }
+      
+      setSelectedImage(file);
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        setImagePreview(e.target?.result as string);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const removeImage = () => {
+    setSelectedImage(null);
+    setImagePreview(null);
+  };
 
   // Create ad mutation
   const createAdMutation = useMutation({
     mutationFn: async (data: AdFormValues) => {
       if (!user) throw new Error("Vous devez être connecté pour créer une annonce");
       
-      return apiRequest("POST", "/api/troc", {
-        ...data,
-        userId: user.id,
+      // Prepare form data
+      const formData = new FormData();
+      formData.append("title", data.title);
+      formData.append("description", data.description);
+      formData.append("category", data.category);
+      formData.append("userId", user.id.toString());
+      
+      if (data.assignedUserId) {
+        formData.append("assignedUserId", data.assignedUserId);
+      }
+      
+      if (selectedImage) {
+        formData.append("image", selectedImage);
+      }
+      
+      const response = await fetch("/api/troc", {
+        method: "POST",
+        body: formData,
       });
+      
+      if (!response.ok) {
+        const error = await response.text();
+        throw new Error(error || "Erreur lors de la création de l'annonce");
+      }
+      
+      return response.json();
     },
     onSuccess: async () => {
       // Invalidate queries to refresh data
@@ -63,7 +124,7 @@ const CreateAd = ({ onSuccess }: CreateAdProps) => {
         description: "Votre annonce a été publiée avec succès",
       });
       
-      // Reset form
+      // Reset form and image
       form.reset({
         title: "",
         description: "",
@@ -71,6 +132,8 @@ const CreateAd = ({ onSuccess }: CreateAdProps) => {
         contactPreference: "message",
       });
       
+      setSelectedImage(null);
+      setImagePreview(null);
       setIsSubmitting(false);
       
       // Call success callback if provided
@@ -136,6 +199,84 @@ const CreateAd = ({ onSuccess }: CreateAdProps) => {
             </FormItem>
           )}
         />
+
+        {/* Admin User Assignment */}
+        {isAdmin && (
+          <FormField
+            control={form.control}
+            name="assignedUserId"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Attribuer à un membre</FormLabel>
+                <Select onValueChange={field.onChange} value={field.value}>
+                  <FormControl>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Sélectionnez un membre (optionnel)" />
+                    </SelectTrigger>
+                  </FormControl>
+                  <SelectContent>
+                    <SelectItem value="none">Aucune attribution (moi-même)</SelectItem>
+                    {users.filter(u => u.isApproved).map(user => (
+                      <SelectItem key={user.id} value={user.id.toString()}>
+                        {user.firstName} {user.lastName} (@{user.username})
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <FormDescription>
+                  En tant qu'administrateur, vous pouvez créer une annonce au nom d'un autre membre
+                </FormDescription>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+        )}
+
+        {/* Image Upload */}
+        <FormItem>
+          <FormLabel>Image (optionnelle)</FormLabel>
+          <FormControl>
+            <div className="space-y-4">
+              {!imagePreview ? (
+                <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center">
+                  <Upload className="mx-auto h-12 w-12 text-gray-400 mb-4" />
+                  <p className="text-sm text-gray-500 mb-2">
+                    Cliquez pour sélectionner une image ou glissez-déposez
+                  </p>
+                  <p className="text-xs text-gray-400">
+                    PNG, JPG, JPEG jusqu'à 5MB
+                  </p>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={handleImageChange}
+                    className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                  />
+                </div>
+              ) : (
+                <div className="relative">
+                  <img
+                    src={imagePreview}
+                    alt="Aperçu"
+                    className="w-full h-48 object-cover rounded-lg"
+                  />
+                  <Button
+                    type="button"
+                    variant="destructive"
+                    size="sm"
+                    className="absolute top-2 right-2"
+                    onClick={removeImage}
+                  >
+                    <X className="h-4 w-4" />
+                  </Button>
+                </div>
+              )}
+            </div>
+          </FormControl>
+          <FormDescription>
+            Ajoutez une image pour illustrer votre annonce (optionnel)
+          </FormDescription>
+        </FormItem>
         
         <FormField
           control={form.control}
