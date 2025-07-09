@@ -1139,11 +1139,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // Handle new image uploads
       if (req.files && 'images' in req.files) {
+        console.log('Files detected for upload:', Object.keys(req.files));
         try {
           const imageFiles = Array.isArray(req.files.images) ? req.files.images : [req.files.images];
+          console.log('Number of image files:', imageFiles.length);
           const imageFile = imageFiles[0]; // For now, take the first image (we can expand to multiple later)
           
           if (imageFile && imageFile.data) {
+            console.log('Processing image file:', imageFile.name, 'Size:', imageFile.size);
             let imageBuffer: Buffer;
             
             if (Buffer.isBuffer(imageFile.data)) {
@@ -1160,6 +1163,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             }
             
             const fileName = `troc-ads/${Date.now()}-${Math.random().toString(36).substring(7)}.jpg`;
+            console.log('Attempting to upload file:', fileName);
             
             imageUrl = await uploadFile(
               StorageBucket.MEDIA,
@@ -1169,11 +1173,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
             );
             
             console.log('Image uploaded successfully:', imageUrl);
+          } else {
+            console.log('No image file data found');
           }
         } catch (uploadError) {
           console.error('Error uploading image:', uploadError);
           // Continue without changing image if upload fails
         }
+      } else {
+        console.log('No files found in request, req.files:', req.files);
       }
       
       updateData.imageUrl = imageUrl;
@@ -1186,12 +1194,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       }
       
+      console.log('Updating ad with data:', updateData);
       const updatedAd = await storage.updateTrocAd(id, updateData);
       
       if (!updatedAd) {
         return res.status(404).json({ message: "Ad not found" });
       }
       
+      console.log('Ad updated successfully:', updatedAd);
       res.status(200).json(updatedAd);
     } catch (error) {
       res.status(500).json({ message: "Internal server error" });
