@@ -59,7 +59,7 @@ const CreateAd = ({ onSuccess }: CreateAdProps) => {
     },
   });
 
-  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleImageChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
       if (file.size > 5 * 1024 * 1024) { // 5MB limit
@@ -72,14 +72,21 @@ const CreateAd = ({ onSuccess }: CreateAdProps) => {
       }
       
       setSelectedImage(file);
+      
+      // Prévisualisation immédiate
       const reader = new FileReader();
       reader.onload = (e) => {
-      // Auto-upload the image after preview is set
-      setIsUploading(true);
-      uploadImageMutation.mutate(file);
         setImagePreview(e.target?.result as string);
       };
       reader.readAsDataURL(file);
+      
+      // Upload automatique de l'image
+      setIsUploading(true);
+      try {
+        await uploadImageMutation.mutateAsync(file);
+      } catch (error) {
+        console.error("Erreur lors du téléchargement:", error);
+      }
     }
   };
 
@@ -142,7 +149,7 @@ const CreateAd = ({ onSuccess }: CreateAdProps) => {
         assignedUserId: data.assignedUserId && data.assignedUserId !== "none" ? parseInt(data.assignedUserId) : undefined,
       });
       
-      return response.json();
+      return await response.json();
     },
     onSuccess: async () => {
       // Invalidate queries to refresh data
@@ -296,27 +303,9 @@ const CreateAd = ({ onSuccess }: CreateAdProps) => {
                     disabled={isUploading}
                   >
                     <Upload className="h-4 w-4 mr-2" />
-                    {selectedImage ? selectedImage.name : "Choisir une image"}
+                    {isUploading ? "Upload en cours..." : imagePreview ? "Changer l'image" : "Choisir une image"}
                   </Button>
                 </div>
-                
-                {selectedImage && (
-                  <Button
-                    type="button"
-                    className="bg-[#FF5500] hover:bg-[#E14A00]"
-                    disabled={isUploading}
-                    onClick={async () => {
-                      setIsUploading(true);
-                      try {
-                        await uploadImageMutation.mutateAsync(selectedImage);
-                      } catch (error) {
-                        console.error("Erreur lors du téléchargement:", error);
-                      }
-                    }}
-                  >
-                    {isUploading ? "Upload..." : "Télécharger"}
-                  </Button>
-                )}
                 
                 {imagePreview && (
                   <Button
@@ -331,7 +320,8 @@ const CreateAd = ({ onSuccess }: CreateAdProps) => {
               </div>
               
               <p className="text-xs text-gray-500">
-                Formats acceptés: JPG, PNG, GIF, WebP (max 5 MB)
+                Formats acceptés: JPG, PNG, GIF, WebP (max 5 MB)<br />
+                L'image sera automatiquement uploadée dès que vous la sélectionnez
               </p>
             </div>
           </FormControl>
@@ -388,7 +378,7 @@ const CreateAd = ({ onSuccess }: CreateAdProps) => {
         />
         
         <div className="flex justify-end pt-4">
-          <Button type="submit" className="bg-[#FF5500]" disabled={isSubmitting || (selectedImage && !form.getValues("imageUrl"))}>
+          <Button type="submit" className="bg-[#FF5500]" disabled={isSubmitting}>
             {isSubmitting ? "Publication en cours..." : "Publier l'annonce"}
           </Button>
         </div>
