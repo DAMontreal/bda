@@ -808,6 +808,85 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Upload TROC image endpoint
+  app.post("/api/upload/troc-image", requireAuth, async (req, res) => {
+    try {
+      if (!req.files || (!req.files.file && !req.files.image)) {
+        return res.status(400).json({ message: "Aucun fichier téléchargé" });
+      }
+      
+      // Accepter soit 'file' (nouveau client) soit 'image' (ancien client) comme nom de paramètre
+      const file = (req.files.file || req.files.image) as fileUpload.UploadedFile;
+      
+      // Validate file type
+      const allowedTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
+      if (!allowedTypes.includes(file.mimetype)) {
+        return res.status(400).json({ 
+          message: "Format de fichier non valide. Seuls JPEG, PNG, GIF et WebP sont acceptés." 
+        });
+      }
+      
+      const userId = req.session.userId!;
+      
+      // Check file size (max 5MB)
+      const maxSize = 5 * 1024 * 1024; // 5MB
+      if (file.size > maxSize) {
+        return res.status(400).json({
+          message: "Fichier trop volumineux. Taille maximum: 5MB"
+        });
+      }
+      
+      // Generate unique filename
+      const fileExt = file.name.split('.').pop();
+      const fileName = `troc-${uuidv4()}.${fileExt}`;
+      const filePath = `troc-ads/${fileName}`;
+      
+      let fileUrl = "";
+      
+      try {
+        // Utiliser le fichier temporaire au lieu de file.data
+        const fileData = await fs.promises.readFile(file.tempFilePath);
+        console.log(`Lecture du fichier temporaire (TROC): ${file.tempFilePath}, taille: ${fileData.length} bytes`);
+        
+        // Upload to Supabase
+        fileUrl = await uploadFile(
+          StorageBucket.MEDIA,
+          filePath,
+          fileData,
+          file.mimetype
+        );
+        
+        if (!fileUrl) {
+          throw new Error("Échec du téléchargement du fichier");
+        }
+      } catch (uploadError: any) {
+        console.error("Erreur lors de l'upload vers Supabase:", uploadError);
+        
+        // Si Supabase n'est pas configuré ou indisponible, utiliser un stockage fallback
+        if (process.env.NODE_ENV === 'development' || process.env.ALLOW_FALLBACK_STORAGE === 'true') {
+          console.log("Utilisation d'un stockage temporaire de secours pour l'image TROC");
+          
+          // En développement, on peut utiliser une URL de fallback
+          // Generate a unique identifier for the placeholder
+          const randomId = Math.floor(Math.random() * 1000);
+          fileUrl = `https://placehold.co/600x400?text=TROC-${randomId}`;
+          
+          console.log("URL de fallback générée:", fileUrl);
+        } else {
+          // En production sans fallback configuré
+          return res.status(500).json({ 
+            message: "Erreur lors du téléchargement de l'image. Service de stockage non disponible."
+          });
+        }
+      }
+      
+      res.status(200).json({ url: fileUrl });
+    } catch (error) {
+      console.error("Erreur lors de l'upload d'image TROC:", error);
+      res.status(500).json({ message: "Erreur lors du téléchargement de l'image" });
+    }
+  });
+
   // Event routes
   app.get("/api/events", async (req, res) => {
     try {
@@ -1003,74 +1082,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/troc", requireAuth, async (req, res) => {
     try {
+      console.log('POST /api/troc - Début de la requête');
+      console.log('req.body:', req.body);
       
       // Only approved users can create ads
       const user = await storage.getUser(req.session.userId!);
       
       if (!user || !user.isApproved) {
         return res.status(403).json({ message: "Only approved artists can create ads" });
-      }
-
-      let imageUrl = null;
-      
-      // Handle image upload if provided using express-fileupload
-      if (req.files && req.files.images) {
-        try {
-          const imageFiles = Array.isArray(req.files.images) ? req.files.images : [req.files.images];
-          const imageFile = imageFiles[0]; // Take the first image
-          
-          console.log('Image file received:', {
-            name: imageFile.name,
-            size: imageFile.size,
-            mimetype: imageFile.mimetype,
-            hasData: !!imageFile.data,
-            dataLength: imageFile.data ? imageFile.data.length : 0,
-            hasTempFilePath: !!imageFile.tempFilePath,
-            tempFilePath: imageFile.tempFilePath,
-            hasMvFunction: !!imageFile.mv
-          });
-          
-          let imageBuffer: Buffer;
-          
-          // Get image buffer from uploaded file
-          if (imageFile.data && imageFile.data.length > 0) {
-            console.log('Using imageFile.data buffer');
-            imageBuffer = imageFile.data;
-          } else {
-            throw new Error('No valid image data found');
-          }
-          
-          // Verify we have valid image data
-          if (!imageBuffer || imageBuffer.length === 0) {
-            throw new Error('Empty image buffer received');
-          }
-          
-          console.log('Image buffer size:', imageBuffer.length);
-          
-          // Only try to resize if we have a valid buffer
-          try {
-            imageBuffer = await resizeProfileImage(imageBuffer);
-            console.log('Image resized successfully');
-          } catch (resizeError) {
-            console.warn('Could not resize image, using original:', resizeError.message);
-            // Keep original buffer if resize fails
-          }
-          
-          const fileName = `troc-ads/${Date.now()}-${Math.random().toString(36).substring(7)}.jpg`;
-          
-          imageUrl = await uploadFile(
-            StorageBucket.MEDIA,
-            fileName,
-            imageBuffer,
-            imageFile.mimetype || 'image/jpeg'
-          );
-          
-          console.log('Image uploaded successfully:', imageUrl);
-        } catch (uploadError) {
-          console.error('Error uploading image:', uploadError);
-          console.error('Stack trace:', uploadError.stack);
-          // Continue without image if upload fails
-        }
       }
       
       // Déterminer l'utilisateur final de l'annonce
@@ -1088,7 +1107,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         title: req.body.title,
         description: req.body.description,
         category: req.body.category,
-        imageUrl,
+        imageUrl: req.body.imageUrl || null,
         userId: finalUserId,
       });
       
