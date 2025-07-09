@@ -27,7 +27,7 @@ const adSchema = z.object({
   category: z.string().min(1, "La catégorie est requise"),
   contactPreference: z.string().optional(),
   assignedUserId: z.string().optional(),
-  image: z.any().optional(),
+  imageUrl: z.string().optional(),
 });
 
 type AdFormValues = z.infer<typeof adSchema>;
@@ -36,6 +36,7 @@ const CreateAd = ({ onSuccess }: CreateAdProps) => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [selectedImage, setSelectedImage] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [isUploading, setIsUploading] = useState(false);
   const { toast } = useToast();
   const { user, isAdmin } = useAuth();
 
@@ -54,6 +55,7 @@ const CreateAd = ({ onSuccess }: CreateAdProps) => {
       category: "",
       contactPreference: "message",
       assignedUserId: "",
+      imageUrl: "",
     },
   });
 
@@ -81,45 +83,61 @@ const CreateAd = ({ onSuccess }: CreateAdProps) => {
   const removeImage = () => {
     setSelectedImage(null);
     setImagePreview(null);
+    form.setValue("imageUrl", "");
   };
+
+  // Upload image mutation
+  const uploadImageMutation = useMutation({
+    mutationFn: async (file: File) => {
+      const formData = new FormData();
+      formData.append('file', file);
+      
+      const response = await fetch('/api/upload/troc-image', {
+        method: 'POST',
+        body: formData,
+        credentials: 'include',
+      });
+      
+      if (!response.ok) {
+        throw new Error(`Erreur ${response.status}: ${response.statusText}`);
+      }
+      
+      return response.json();
+    },
+    onSuccess: (data) => {
+      form.setValue('imageUrl', data.url);
+      setImagePreview(data.url);
+      
+      toast({
+        title: "Image téléchargée",
+        description: "L'image a été téléchargée avec succès"
+      });
+      
+      setSelectedImage(null);
+      setIsUploading(false);
+    },
+    onError: (error: any) => {
+      toast({
+        variant: "destructive",
+        title: "Erreur",
+        description: error.message || "Erreur lors du téléchargement de l'image"
+      });
+      setIsUploading(false);
+    },
+  });
 
   // Create ad mutation
   const createAdMutation = useMutation({
     mutationFn: async (data: AdFormValues) => {
       if (!user) throw new Error("Vous devez être connecté pour créer une annonce");
       
-      // Prepare form data
-      const formData = new FormData();
-      formData.append("title", data.title);
-      formData.append("description", data.description);
-      formData.append("category", data.category);
-      formData.append("userId", user.id.toString());
-      
-      if (data.assignedUserId) {
-        formData.append("assignedUserId", data.assignedUserId);
-      }
-      
-      if (selectedImage) {
-        formData.append("images", selectedImage);
-      }
-      
-      console.log('Envoi de la requête avec formData:', {
+      const response = await apiRequest("POST", "/api/troc", {
         title: data.title,
-        hasImage: !!selectedImage,
-        imageSize: selectedImage?.size,
-        imageName: selectedImage?.name
+        description: data.description,
+        category: data.category,
+        imageUrl: data.imageUrl,
+        assignedUserId: data.assignedUserId && data.assignedUserId !== "none" ? parseInt(data.assignedUserId) : undefined,
       });
-
-      const response = await fetch("/api/troc", {
-        method: "POST",
-        body: formData,
-        credentials: "include", // Important pour les sessions
-      });
-      
-      if (!response.ok) {
-        const error = await response.text();
-        throw new Error(error || "Erreur lors de la création de l'annonce");
-      }
       
       return response.json();
     },
@@ -138,6 +156,7 @@ const CreateAd = ({ onSuccess }: CreateAdProps) => {
         description: "",
         category: "",
         contactPreference: "message",
+        imageUrl: "",
       });
       
       setSelectedImage(null);
@@ -245,15 +264,20 @@ const CreateAd = ({ onSuccess }: CreateAdProps) => {
           <FormLabel>Image (optionnelle)</FormLabel>
           <FormControl>
             <div className="space-y-4">
-              {!imagePreview ? (
-                <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center">
-                  <Upload className="mx-auto h-12 w-12 text-gray-400 mb-4" />
-                  <p className="text-sm text-gray-500 mb-2">
-                    Sélectionnez une image pour votre annonce
-                  </p>
-                  <p className="text-xs text-gray-400 mb-4">
-                    PNG, JPG, JPEG jusqu'à 5MB
-                  </p>
+              {/* Image Preview */}
+              <div className="h-48 w-full rounded-lg border border-gray-200 overflow-hidden">
+                {imagePreview ? (
+                  <img src={imagePreview} alt="Aperçu de l'annonce" className="h-full w-full object-cover" />
+                ) : (
+                  <div className="h-full w-full flex items-center justify-center bg-gray-100">
+                    <Upload size={48} className="text-gray-400" />
+                  </div>
+                )}
+              </div>
+              
+              {/* Upload Controls */}
+              <div className="flex gap-2">
+                <div className="flex-1">
                   <input
                     type="file"
                     accept="image/*"
@@ -265,30 +289,47 @@ const CreateAd = ({ onSuccess }: CreateAdProps) => {
                     type="button"
                     variant="outline"
                     onClick={() => document.getElementById('image-upload')?.click()}
-                    className="bg-gray-100 hover:bg-gray-200"
+                    className="w-full"
+                    disabled={isUploading}
                   >
                     <Upload className="h-4 w-4 mr-2" />
-                    Choisir une image
+                    {selectedImage ? selectedImage.name : "Choisir une image"}
                   </Button>
                 </div>
-              ) : (
-                <div className="relative">
-                  <img
-                    src={imagePreview}
-                    alt="Aperçu"
-                    className="w-full h-48 object-cover rounded-lg"
-                  />
+                
+                {selectedImage && (
+                  <Button
+                    type="button"
+                    className="bg-[#FF5500] hover:bg-[#E14A00]"
+                    disabled={isUploading}
+                    onClick={async () => {
+                      setIsUploading(true);
+                      try {
+                        await uploadImageMutation.mutateAsync(selectedImage);
+                      } catch (error) {
+                        console.error("Erreur lors du téléchargement:", error);
+                      }
+                    }}
+                  >
+                    {isUploading ? "Upload..." : "Télécharger"}
+                  </Button>
+                )}
+                
+                {imagePreview && (
                   <Button
                     type="button"
                     variant="destructive"
-                    size="sm"
-                    className="absolute top-2 right-2"
                     onClick={removeImage}
+                    disabled={isUploading}
                   >
                     <X className="h-4 w-4" />
                   </Button>
-                </div>
-              )}
+                )}
+              </div>
+              
+              <p className="text-xs text-gray-500">
+                Formats acceptés: JPG, PNG, GIF, WebP (max 5 MB)
+              </p>
             </div>
           </FormControl>
           <FormDescription>
