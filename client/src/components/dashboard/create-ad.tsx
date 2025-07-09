@@ -100,7 +100,7 @@ const CreateAd = ({ onSuccess }: CreateAdProps) => {
       }
       
       if (selectedImage) {
-        formData.append("image", selectedImage);
+        formData.append("images", selectedImage);
       }
       
       const response = await fetch("/api/troc", {
@@ -241,17 +241,27 @@ const CreateAd = ({ onSuccess }: CreateAdProps) => {
                 <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center">
                   <Upload className="mx-auto h-12 w-12 text-gray-400 mb-4" />
                   <p className="text-sm text-gray-500 mb-2">
-                    Cliquez pour sélectionner une image ou glissez-déposez
+                    Sélectionnez une image pour votre annonce
                   </p>
-                  <p className="text-xs text-gray-400">
+                  <p className="text-xs text-gray-400 mb-4">
                     PNG, JPG, JPEG jusqu'à 5MB
                   </p>
                   <input
                     type="file"
                     accept="image/*"
                     onChange={handleImageChange}
-                    className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                    className="hidden"
+                    id="image-upload"
                   />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => document.getElementById('image-upload')?.click()}
+                    className="bg-gray-100 hover:bg-gray-200"
+                  >
+                    <Upload className="h-4 w-4 mr-2" />
+                    Choisir une image
+                  </Button>
                 </div>
               ) : (
                 <div className="relative">
