@@ -142,7 +142,9 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createTrocAd(ad: InsertTrocAd): Promise<TrocAd> {
+    console.log('DatabaseStorage.createTrocAd - données reçues:', ad);
     const [createdAd] = await db.insert(trocAds).values(ad).returning();
+    console.log('DatabaseStorage.createTrocAd - données créées:', createdAd);
     return createdAd;
   }
 
