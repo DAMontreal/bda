@@ -74,6 +74,9 @@ const CreateAd = ({ onSuccess }: CreateAdProps) => {
       setSelectedImage(file);
       const reader = new FileReader();
       reader.onload = (e) => {
+      // Auto-upload the image after preview is set
+      setIsUploading(true);
+      uploadImageMutation.mutate(file);
         setImagePreview(e.target?.result as string);
       };
       reader.readAsDataURL(file);
@@ -385,7 +388,7 @@ const CreateAd = ({ onSuccess }: CreateAdProps) => {
         />
         
         <div className="flex justify-end pt-4">
-          <Button type="submit" className="bg-[#FF5500]" disabled={isSubmitting}>
+          <Button type="submit" className="bg-[#FF5500]" disabled={isSubmitting || (selectedImage && !form.getValues("imageUrl"))}>
             {isSubmitting ? "Publication en cours..." : "Publier l'annonce"}
           </Button>
         </div>
