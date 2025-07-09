@@ -1014,9 +1014,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       let imageUrl = null;
       
       // Handle image upload if provided using express-fileupload
-      if (req.files && req.files.image) {
+      if (req.files && req.files.images) {
         try {
-          const imageFile = req.files.image as fileUpload.UploadedFile;
+          const imageFiles = Array.isArray(req.files.images) ? req.files.images : [req.files.images];
+          const imageFile = imageFiles[0]; // Take the first image
           
           console.log('Image file received:', {
             name: imageFile.name,
