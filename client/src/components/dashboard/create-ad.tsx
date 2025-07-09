@@ -103,9 +103,17 @@ const CreateAd = ({ onSuccess }: CreateAdProps) => {
         formData.append("images", selectedImage);
       }
       
+      console.log('Envoi de la requête avec formData:', {
+        title: data.title,
+        hasImage: !!selectedImage,
+        imageSize: selectedImage?.size,
+        imageName: selectedImage?.name
+      });
+
       const response = await fetch("/api/troc", {
         method: "POST",
         body: formData,
+        credentials: "include", // Important pour les sessions
       });
       
       if (!response.ok) {
