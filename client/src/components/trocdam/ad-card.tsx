@@ -67,31 +67,36 @@ const TrocAdCard = ({ ad }: TrocAdCardProps) => {
   };
 
   return (
-    <Link href={`/troc/${ad.id}`}>
-      <Card className="border border-gray-300 rounded-lg hover:border-[#FF5500] transition-colors cursor-pointer overflow-hidden">
-        {ad.imageUrl && (
-          <div className="aspect-video w-full overflow-hidden">
-            <img
-              src={ad.imageUrl}
-              alt={ad.title}
-              className="w-full h-full object-cover"
-            />
+    <Card className="border border-gray-300 rounded-lg hover:border-[#FF5500] transition-colors overflow-hidden">
+      <Link href={`/troc/${ad.id}`}>
+        <div className="cursor-pointer">
+          {ad.imageUrl && (
+            <div className="aspect-video w-full overflow-hidden">
+              <img
+                src={ad.imageUrl}
+                alt={ad.title}
+                className="w-full h-full object-cover"
+              />
+            </div>
+          )}
+          <div className="p-4">
+            <div className="flex justify-between items-start mb-3">
+              <h4 className="font-bold">{ad.title}</h4>
+              <Badge variant="secondary" className="bg-gray-100 text-black text-xs px-2 py-1 rounded">
+                {getTrocCategoryLabel(ad.category)}
+              </Badge>
+            </div>
+            <div className="text-gray-500 text-sm mb-4">
+              {ad.description.length > 120 ? (
+                <p>{ad.description.substring(0, 120)}...</p>
+              ) : (
+                <FormattedText text={ad.description} />
+              )}
+            </div>
           </div>
-        )}
-        <div className="p-4">
-          <div className="flex justify-between items-start mb-3">
-            <h4 className="font-bold">{ad.title}</h4>
-            <Badge variant="secondary" className="bg-gray-100 text-black text-xs px-2 py-1 rounded">
-              {getTrocCategoryLabel(ad.category)}
-            </Badge>
-          </div>
-          <div className="text-gray-500 text-sm mb-4">
-            {ad.description.length > 120 ? (
-              <p>{ad.description.substring(0, 120)}...</p>
-            ) : (
-              <FormattedText text={ad.description} />
-            )}
-          </div>
+        </div>
+      </Link>
+      <div className="p-4">
         <div className="flex justify-between items-center">
           <div className="flex items-center">
             <Avatar className="h-8 w-8 mr-2">
@@ -178,9 +183,8 @@ const TrocAdCard = ({ ad }: TrocAdCardProps) => {
             )}
           </div>
         </div>
-        </div>
-      </Card>
-    </Link>
+      </div>
+    </Card>
   );
 };
 
