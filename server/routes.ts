@@ -766,9 +766,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
       let fileUrl = "";
       
       try {
-        // Utiliser le fichier temporaire au lieu de file.data
-        const fileData = await fs.promises.readFile(file.tempFilePath);
-        console.log(`Lecture du fichier temporaire (événement): ${file.tempFilePath}, taille: ${fileData.length} bytes`);
+        // Gérer les deux cas: avec et sans fichiers temporaires
+        let fileData: Buffer;
+        if (file.tempFilePath && file.tempFilePath.length > 0) {
+          // Mode avec fichiers temporaires
+          fileData = await fs.promises.readFile(file.tempFilePath);
+          console.log(`Lecture du fichier temporaire (événement): ${file.tempFilePath}, taille: ${fileData.length} bytes`);
+        } else {
+          // Mode sans fichiers temporaires (utiliser file.data)
+          fileData = file.data;
+          console.log(`Utilisation de file.data (événement), taille: ${fileData.length} bytes`);
+        }
         
         // Upload to Supabase
         fileUrl = await uploadFile(
