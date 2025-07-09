@@ -39,9 +39,27 @@ export async function uploadTrocImage(req: Request, res: Response) {
     let fileUrl = "";
     
     try {
-      // Utiliser le fichier temporaire au lieu de file.data
-      const fileData = await fs.promises.readFile(file.tempFilePath);
-      console.log(`Lecture du fichier temporaire (TROC): ${file.tempFilePath}, taille: ${fileData.length} bytes`);
+      // Debug: afficher la structure du fichier
+      console.log("Structure du fichier (TROC):", {
+        name: file.name,
+        size: file.size,
+        mimetype: file.mimetype,
+        tempFilePath: file.tempFilePath,
+        hasData: !!file.data,
+        dataSize: file.data ? file.data.length : 0
+      });
+      
+      // Gérer les deux cas: avec et sans fichiers temporaires
+      let fileData: Buffer;
+      if (file.tempFilePath && file.tempFilePath.length > 0) {
+        // Mode avec fichiers temporaires
+        fileData = await fs.promises.readFile(file.tempFilePath);
+        console.log(`Lecture du fichier temporaire (TROC): ${file.tempFilePath}, taille: ${fileData.length} bytes`);
+      } else {
+        // Mode sans fichiers temporaires (utiliser file.data)
+        fileData = file.data;
+        console.log(`Utilisation de file.data (TROC), taille: ${fileData.length} bytes`);
+      }
       
       // Upload to Supabase
       fileUrl = await uploadFile(
