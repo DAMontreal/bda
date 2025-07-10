@@ -28,7 +28,7 @@ interface TrocAdCardProps {
 }
 
 const TrocAdCard = ({ ad }: TrocAdCardProps) => {
-  const { isAuthenticated, isAdmin } = useAuth();
+  const { isAuthenticated, isAdmin, user: currentUser } = useAuth();
   const { toast } = useToast();
   
   // Fetch user data for the ad creator
@@ -119,8 +119,8 @@ const TrocAdCard = ({ ad }: TrocAdCardProps) => {
           <div className="flex items-center gap-2">
             <span className="text-xs text-gray-500">{formatTimeAgo(ad.createdAt || new Date())}</span>
             
-            {/* Admin controls */}
-            {isAdmin && (
+            {/* Edit/Delete controls - pour le créateur ou l'admin */}
+            {(currentUser && (currentUser.id === ad.userId || isAdmin)) && (
               <div className="flex gap-1">
                 <Link href={`/troc/${ad.id}/edit`}>
                   <Button 
