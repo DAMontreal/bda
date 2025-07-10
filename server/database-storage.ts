@@ -144,7 +144,11 @@ export class DatabaseStorage implements IStorage {
         result = await baseQuery;
       }
       
-      return result;
+      // Ajouter imageUrl: null pour les résultats qui n'en ont pas
+      return result.map(ad => ({
+        ...ad,
+        imageUrl: ad.imageUrl || null
+      }));
     } catch (error) {
       console.error('Error in getTrocAds:', error);
       throw error;
@@ -153,10 +157,25 @@ export class DatabaseStorage implements IStorage {
 
   async createTrocAd(ad: InsertTrocAd): Promise<TrocAd> {
     try {
-      const [createdAd] = await db.insert(trocAds).values(ad).returning();
-      return createdAd;
+      console.log('createTrocAd - données reçues:', ad);
+      
+      // Essayer d'abord avec toutes les colonnes, puis fallback sans imageUrl
+      try {
+        const [createdAd] = await db.insert(trocAds).values(ad).returning();
+        console.log('createTrocAd - annonce créée avec imageUrl:', createdAd);
+        return createdAd;
+      } catch (columnError) {
+        if (columnError.message?.includes('column "image_url"')) {
+          console.log('Colonne image_url manquante, création sans imageUrl...');
+          const { imageUrl, ...baseAd } = ad;
+          const [createdAd] = await db.insert(trocAds).values(baseAd).returning();
+          console.log('createTrocAd - annonce créée sans imageUrl:', createdAd);
+          return { ...createdAd, imageUrl: null } as TrocAd;
+        }
+        throw columnError;
+      }
     } catch (error) {
-      console.error('Error in createTrocAd:', error);
+      console.error('Error in createTrocAd - détails complets:', error);
       throw error;
     }
   }
