@@ -141,13 +141,25 @@ const CreateAd = ({ onSuccess }: CreateAdProps) => {
     mutationFn: async (data: AdFormValues) => {
       if (!user) throw new Error("Vous devez être connecté pour créer une annonce");
       
-      const response = await apiRequest("POST", "/api/troc", {
+      // Préparer les données en nettoyant les champs vides
+      const payload: any = {
         title: data.title,
         description: data.description,
         category: data.category,
-        imageUrl: data.imageUrl,
-        assignedUserId: data.assignedUserId && data.assignedUserId !== "none" ? parseInt(data.assignedUserId) : undefined,
-      });
+      };
+      
+      // Ajouter imageUrl seulement si fourni
+      if (data.imageUrl && data.imageUrl.trim() !== '') {
+        payload.imageUrl = data.imageUrl;
+      }
+      
+      // Ajouter assignedUserId seulement si fourni
+      if (data.assignedUserId && data.assignedUserId !== "none") {
+        payload.assignedUserId = parseInt(data.assignedUserId);
+      }
+      
+      console.log('Envoi des données:', payload);
+      const response = await apiRequest("POST", "/api/troc", payload);
       
       return await response.json();
     },
@@ -177,6 +189,7 @@ const CreateAd = ({ onSuccess }: CreateAdProps) => {
       if (onSuccess) onSuccess();
     },
     onError: (error: any) => {
+      console.error('Erreur complète:', error);
       toast({
         variant: "destructive",
         title: "Erreur",
