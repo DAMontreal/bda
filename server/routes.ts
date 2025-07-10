@@ -995,8 +995,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
       
       const result = await db.execute(sql.raw(finalQuery));
+      console.log('📋 TROC - GET result type:', typeof result);
+      console.log('📋 TROC - GET result keys:', Object.keys(result));
+      console.log('📋 TROC - GET result.rows:', result.rows);
       
-      res.status(200).json(result);
+      // Extraire le tableau de données depuis le résultat SQL
+      let ads = [];
+      if (result.rows && Array.isArray(result.rows)) {
+        ads = result.rows;
+      } else if (Array.isArray(result)) {
+        ads = result;
+      } else {
+        console.warn('⚠️ TROC - Format résultat inattendu, renvoi tableau vide');
+        ads = [];
+      }
+      
+      console.log('📋 TROC - Final ads array:', ads.length, 'items');
+      res.status(200).json(ads);
     } catch (error) {
       console.error('Erreur GET /api/troc:', error);
       res.status(500).json({ message: "Internal server error" });
@@ -1021,11 +1036,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       const result = await db.execute(sql.raw(query));
       
-      if (result.length === 0) {
+      // Extraire l'annonce depuis le résultat SQL
+      let ad = null;
+      if (result.rows && result.rows.length > 0) {
+        ad = result.rows[0];
+      } else if (result[0]) {
+        ad = result[0];
+      }
+      
+      if (!ad) {
         return res.status(404).json({ message: "Ad not found" });
       }
       
-      res.status(200).json(result[0]);
+      res.status(200).json(ad);
     } catch (error) {
       console.error('Erreur GET /api/troc/:id:', error);
       res.status(500).json({ message: "Internal server error" });
