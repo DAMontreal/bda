@@ -1087,8 +1087,35 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.log('📝 TROC - SQL Direct (sans paramètres):', query);
       
       const result = await db.execute(sql.raw(query));
-      const ad = result[0];
-      console.log('🎉 TROC - Ad created via SQL direct:', ad);
+      console.log('🔍 TROC - SQL result complete:', result);
+      console.log('🔍 TROC - result.rows:', result.rows);
+      console.log('🔍 TROC - result[0]:', result[0]);
+      
+      // Récupérer l'annonce créée depuis le résultat
+      let ad = null;
+      if (result.rows && result.rows.length > 0) {
+        ad = result.rows[0];
+      } else if (result[0]) {
+        ad = result[0];
+      } else {
+        // Fallback : récupérer l'annonce par une nouvelle requête
+        const fallbackQuery = `
+          SELECT id, title, description, category, user_id as "userId", created_at as "createdAt"
+          FROM troc_ads
+          WHERE user_id = ${validatedData.userId}
+          ORDER BY created_at DESC
+          LIMIT 1
+        `;
+        const fallbackResult = await db.execute(sql.raw(fallbackQuery));
+        ad = fallbackResult.rows?.[0] || fallbackResult[0];
+      }
+      
+      console.log('🎉 TROC - Final ad data:', ad);
+      
+      if (!ad) {
+        console.error('❌ TROC - Aucune annonce retournée');
+        return res.status(500).json({ message: "Erreur: annonce créée mais non récupérée" });
+      }
       
       res.status(201).json(ad);
     } catch (error) {
