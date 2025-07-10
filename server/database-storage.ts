@@ -220,31 +220,47 @@ export class DatabaseStorage implements IStorage {
     try {
       console.log('createTrocAd - données reçues:', ad);
       
+      // Préparer les données pour Drizzle en retirant imageUrl si null/undefined
+      const drizzleData = { ...ad };
+      if (!drizzleData.imageUrl) {
+        delete drizzleData.imageUrl;
+      }
+      
       // Essayer avec Drizzle d'abord, puis fallback SQL avec image_url
       try {
-        const [createdAd] = await db.insert(trocAds).values(ad).returning();
+        const [createdAd] = await db.insert(trocAds).values(drizzleData).returning();
         console.log('createTrocAd - succès avec Drizzle:', createdAd);
-        return createdAd;
+        return {
+          ...createdAd,
+          imageUrl: createdAd.imageUrl || null
+        };
       } catch (drizzleError: any) {
         console.log('Drizzle échoué, utilisation du SQL direct avec image_url:', drizzleError.message);
         
         // Fallback: SQL direct avec support d'image
-        const query = `
-          INSERT INTO troc_ads (title, description, category, user_id, image_url) 
-          VALUES ($1, $2, $3, $4, $5) 
-          RETURNING id, title, description, category, user_id, created_at, image_url
-        `;
+        const hasImage = ad.imageUrl && ad.imageUrl.trim() !== '';
+        let query, params;
         
-        const result = await pool.query(query, [
-          ad.title, 
-          ad.description, 
-          ad.category, 
-          ad.userId, 
-          ad.imageUrl || null
-        ]);
+        if (hasImage) {
+          query = `
+            INSERT INTO troc_ads (title, description, category, user_id, image_url) 
+            VALUES ($1, $2, $3, $4, $5) 
+            RETURNING id, title, description, category, user_id, created_at, image_url
+          `;
+          params = [ad.title, ad.description, ad.category, ad.userId, ad.imageUrl];
+        } else {
+          query = `
+            INSERT INTO troc_ads (title, description, category, user_id) 
+            VALUES ($1, $2, $3, $4) 
+            RETURNING id, title, description, category, user_id, created_at
+          `;
+          params = [ad.title, ad.description, ad.category, ad.userId];
+        }
+        
+        const result = await pool.query(query, params);
         const createdAd = result.rows[0];
         
-        console.log('createTrocAd - succès avec SQL direct + image:', createdAd);
+        console.log('createTrocAd - succès avec SQL direct:', createdAd);
         
         return {
           id: createdAd.id,
@@ -253,7 +269,7 @@ export class DatabaseStorage implements IStorage {
           category: createdAd.category,
           userId: createdAd.user_id,
           createdAt: new Date(createdAd.created_at),
-          imageUrl: createdAd.image_url
+          imageUrl: createdAd.image_url || null
         } as TrocAd;
       }
     } catch (error) {

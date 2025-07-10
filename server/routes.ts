@@ -1037,13 +1037,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       // Support complet des images en production et local
-      const adData = {
+      const adData: any = {
         title: req.body.title,
         description: req.body.description,
         category: req.body.category,
         userId: finalUserId,
-        imageUrl: req.body.imageUrl || null,
       };
+      
+      // Ajouter imageUrl seulement si fourni pour éviter les erreurs de validation
+      if (req.body.imageUrl) {
+        adData.imageUrl = req.body.imageUrl;
+      }
       
       console.log('adData prepared:', adData);
       const validatedData = insertTrocAdSchema.parse(adData);
