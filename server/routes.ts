@@ -967,37 +967,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const category = req.query.category as string | undefined;
       const limit = req.query.limit ? parseInt(req.query.limit as string) : undefined;
       
-      // Utiliser SQL brut pour éviter le cache ORM
-      
+      // Stratégie robuste : essayer d'abord avec image_url, puis fallback
       let query = `
-        SELECT id, title, description, category, user_id as "userId", created_at as "createdAt", image_url as "imageUrl"
+        SELECT id, title, description, category, user_id as "userId", created_at as "createdAt", 
+               COALESCE(image_url, NULL) as "imageUrl"
         FROM troc_ads
         WHERE 1=1
       `;
-      const values: any[] = [];
       
       if (category) {
-        query += ' AND category = $' + (values.length + 1);
-        values.push(category);
+        query += ` AND category = '${category}'`;
       }
       
       query += ' ORDER BY created_at DESC';
       
       if (limit) {
-        query += ' LIMIT $' + (values.length + 1);
-        values.push(limit);
+        query += ` LIMIT ${limit}`;
       }
       
-      // Construire la requête avec les paramètres intégrés pour éviter l'erreur $1
-      let finalQuery = query;
-      values.forEach((value, index) => {
-        finalQuery = finalQuery.replace('$' + (index + 1), `'${value}'`);
-      });
+      console.log('📋 TROC - Executing query:', query);
       
-      const result = await db.execute(sql.raw(finalQuery));
-      console.log('📋 TROC - GET result type:', typeof result);
-      console.log('📋 TROC - GET result keys:', Object.keys(result));
-      console.log('📋 TROC - GET result.rows:', result.rows);
+      const result = await db.execute(sql.raw(query));
+      console.log('📋 TROC - Query executed successfully');
       
       // Extraire le tableau de données depuis le résultat SQL
       let ads = [];
@@ -1014,7 +1005,32 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(200).json(ads);
     } catch (error) {
       console.error('Erreur GET /api/troc:', error);
-      res.status(500).json({ message: "Internal server error" });
+      console.error('Error details:', error.message);
+      
+      // Fallback simple sans image_url en cas d'erreur
+      try {
+        console.log('📋 TROC - Attempting fallback without image_url');
+        const fallbackQuery = `
+          SELECT id, title, description, category, user_id as "userId", created_at as "createdAt"
+          FROM troc_ads
+          ORDER BY created_at DESC
+        `;
+        
+        const fallbackResult = await db.execute(sql.raw(fallbackQuery));
+        const fallbackAds = fallbackResult.rows || fallbackResult || [];
+        
+        // Ajouter imageUrl null à toutes les annonces
+        const adsWithImageUrl = fallbackAds.map(ad => ({
+          ...ad,
+          imageUrl: null
+        }));
+        
+        console.log('📋 TROC - Fallback successful:', adsWithImageUrl.length, 'items');
+        res.status(200).json(adsWithImageUrl);
+      } catch (fallbackError) {
+        console.error('Fallback aussi échoué:', fallbackError);
+        res.status(500).json({ message: "Internal server error" });
+      }
     }
   });
 
@@ -1029,7 +1045,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Utiliser SQL brut pour éviter le cache ORM
       
       const query = `
-        SELECT id, title, description, category, user_id as "userId", created_at as "createdAt", image_url as "imageUrl"
+        SELECT id, title, description, category, user_id as "userId", created_at as "createdAt", 
+               COALESCE(image_url, NULL) as "imageUrl"
         FROM troc_ads
         WHERE id = ${id}
       `;
