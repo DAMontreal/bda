@@ -6,7 +6,7 @@ import {
   messages, type Message, type InsertMessage,
   sessions, type Session, type InsertSession
 } from "@shared/schema";
-import { db } from "./db";
+import { db, pool } from "./db";
 import { and, eq, or, desc, asc, isNull } from "drizzle-orm";
 import { IStorage } from "./storage";
 
@@ -118,8 +118,36 @@ export class DatabaseStorage implements IStorage {
   // TrocAd operations
   async getTrocAd(id: number): Promise<TrocAd | undefined> {
     try {
-      const [ad] = await db.select().from(trocAds).where(eq(trocAds.id, id));
-      return ad;
+      // Essayer avec Drizzle d'abord, puis fallback SQL
+      try {
+        const [ad] = await db.select().from(trocAds).where(eq(trocAds.id, id));
+        return ad;
+      } catch (drizzleError) {
+        console.log('Drizzle échoué pour getTrocAd, utilisation du SQL direct');
+        
+        const query = `
+          SELECT id, title, description, category, user_id, created_at, image_url
+          FROM troc_ads
+          WHERE id = $1
+        `;
+        
+        const result = await pool.query(query, [id]);
+        
+        if (result.rows.length === 0) {
+          return undefined;
+        }
+        
+        const row = result.rows[0];
+        return {
+          id: row.id,
+          title: row.title,
+          description: row.description,
+          category: row.category,
+          userId: row.user_id,
+          createdAt: new Date(row.created_at),
+          imageUrl: row.image_url
+        } as TrocAd;
+      }
     } catch (error) {
       console.error('Error in getTrocAd:', error);
       throw error;
@@ -128,27 +156,60 @@ export class DatabaseStorage implements IStorage {
 
   async getTrocAds(options?: { category?: string; limit?: number }): Promise<TrocAd[]> {
     try {
-      let result;
-      const baseQuery = db
-        .select()
-        .from(trocAds)
-        .orderBy(desc(trocAds.createdAt));
-      
-      if (options?.category) {
-        result = await baseQuery
-          .where(eq(trocAds.category, options.category))
-          .limit(options?.limit || 100);
-      } else if (options?.limit) {
-        result = await baseQuery.limit(options.limit);
-      } else {
-        result = await baseQuery;
+      // Essayer avec Drizzle d'abord (local), puis fallback SQL (production)
+      try {
+        let result;
+        const baseQuery = db
+          .select()
+          .from(trocAds)
+          .orderBy(desc(trocAds.createdAt));
+        
+        if (options?.category) {
+          result = await baseQuery
+            .where(eq(trocAds.category, options.category))
+            .limit(options?.limit || 100);
+        } else if (options?.limit) {
+          result = await baseQuery.limit(options.limit);
+        } else {
+          result = await baseQuery;
+        }
+        
+        return result;
+      } catch (drizzleError: any) {
+        console.log('Drizzle échoué pour getTrocAds, utilisation du SQL direct');
+        
+        // Fallback: SQL direct avec support d'image
+        let query = `
+          SELECT id, title, description, category, user_id, created_at, image_url
+          FROM troc_ads
+        `;
+        const params: any[] = [];
+        
+        if (options?.category) {
+          query += ` WHERE category = $1`;
+          params.push(options.category);
+        }
+        
+        query += ` ORDER BY created_at DESC`;
+        
+        if (options?.limit) {
+          const paramIndex = params.length + 1;
+          query += ` LIMIT $${paramIndex}`;
+          params.push(options.limit);
+        }
+        
+        const result = await pool.query(query, params);
+        
+        return result.rows.map((row: any) => ({
+          id: row.id,
+          title: row.title,
+          description: row.description,
+          category: row.category,
+          userId: row.user_id,
+          createdAt: new Date(row.created_at),
+          imageUrl: row.image_url
+        })) as TrocAd[];
       }
-      
-      // Ajouter imageUrl: null pour les résultats qui n'en ont pas
-      return result.map(ad => ({
-        ...ad,
-        imageUrl: ad.imageUrl || null
-      }));
     } catch (error) {
       console.error('Error in getTrocAds:', error);
       throw error;
@@ -159,23 +220,44 @@ export class DatabaseStorage implements IStorage {
     try {
       console.log('createTrocAd - données reçues:', ad);
       
-      // Essayer d'abord avec toutes les colonnes, puis fallback sans imageUrl
+      // Essayer avec Drizzle d'abord, puis fallback SQL avec image_url
       try {
         const [createdAd] = await db.insert(trocAds).values(ad).returning();
-        console.log('createTrocAd - annonce créée avec imageUrl:', createdAd);
+        console.log('createTrocAd - succès avec Drizzle:', createdAd);
         return createdAd;
-      } catch (columnError) {
-        if (columnError.message?.includes('column "image_url"')) {
-          console.log('Colonne image_url manquante, création sans imageUrl...');
-          const { imageUrl, ...baseAd } = ad;
-          const [createdAd] = await db.insert(trocAds).values(baseAd).returning();
-          console.log('createTrocAd - annonce créée sans imageUrl:', createdAd);
-          return { ...createdAd, imageUrl: null } as TrocAd;
-        }
-        throw columnError;
+      } catch (drizzleError: any) {
+        console.log('Drizzle échoué, utilisation du SQL direct avec image_url:', drizzleError.message);
+        
+        // Fallback: SQL direct avec support d'image
+        const query = `
+          INSERT INTO troc_ads (title, description, category, user_id, image_url) 
+          VALUES ($1, $2, $3, $4, $5) 
+          RETURNING id, title, description, category, user_id, created_at, image_url
+        `;
+        
+        const result = await pool.query(query, [
+          ad.title, 
+          ad.description, 
+          ad.category, 
+          ad.userId, 
+          ad.imageUrl || null
+        ]);
+        const createdAd = result.rows[0];
+        
+        console.log('createTrocAd - succès avec SQL direct + image:', createdAd);
+        
+        return {
+          id: createdAd.id,
+          title: createdAd.title,
+          description: createdAd.description,
+          category: createdAd.category,
+          userId: createdAd.user_id,
+          createdAt: new Date(createdAd.created_at),
+          imageUrl: createdAd.image_url
+        } as TrocAd;
       }
     } catch (error) {
-      console.error('Error in createTrocAd - détails complets:', error);
+      console.error('Error in createTrocAd - tous les fallbacks échoués:', error);
       throw error;
     }
   }

@@ -1036,12 +1036,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       }
 
-      // Version simple sans imageUrl pour production
+      // Support complet des images en production et local
       const adData = {
         title: req.body.title,
         description: req.body.description,
         category: req.body.category,
         userId: finalUserId,
+        imageUrl: req.body.imageUrl || null,
       };
       
       console.log('adData prepared:', adData);
