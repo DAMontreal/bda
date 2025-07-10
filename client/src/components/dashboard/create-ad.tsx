@@ -20,7 +20,7 @@ interface CreateAdProps {
   onSuccess?: () => void;
 }
 
-// Schema for TROC'DAM ads
+// Schema for TROC'DAM ads - Updated 2025-07-10 to fix empty fields issue
 const adSchema = z.object({
   title: z.string().min(1, "Le titre est requis"),
   description: z.string().min(1, "La description est requise"),
