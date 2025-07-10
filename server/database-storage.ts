@@ -117,33 +117,48 @@ export class DatabaseStorage implements IStorage {
 
   // TrocAd operations
   async getTrocAd(id: number): Promise<TrocAd | undefined> {
-    const [ad] = await db.select().from(trocAds).where(eq(trocAds.id, id));
-    return ad;
+    try {
+      const [ad] = await db.select().from(trocAds).where(eq(trocAds.id, id));
+      return ad;
+    } catch (error) {
+      console.error('Error in getTrocAd:', error);
+      throw error;
+    }
   }
 
   async getTrocAds(options?: { category?: string; limit?: number }): Promise<TrocAd[]> {
-    let result;
-    const baseQuery = db
-      .select()
-      .from(trocAds)
-      .orderBy(desc(trocAds.createdAt));
-    
-    if (options?.category) {
-      result = await baseQuery
-        .where(eq(trocAds.category, options.category))
-        .limit(options?.limit || 100);
-    } else if (options?.limit) {
-      result = await baseQuery.limit(options.limit);
-    } else {
-      result = await baseQuery;
+    try {
+      let result;
+      const baseQuery = db
+        .select()
+        .from(trocAds)
+        .orderBy(desc(trocAds.createdAt));
+      
+      if (options?.category) {
+        result = await baseQuery
+          .where(eq(trocAds.category, options.category))
+          .limit(options?.limit || 100);
+      } else if (options?.limit) {
+        result = await baseQuery.limit(options.limit);
+      } else {
+        result = await baseQuery;
+      }
+      
+      return result;
+    } catch (error) {
+      console.error('Error in getTrocAds:', error);
+      throw error;
     }
-    
-    return result;
   }
 
   async createTrocAd(ad: InsertTrocAd): Promise<TrocAd> {
-    const [createdAd] = await db.insert(trocAds).values(ad).returning();
-    return createdAd;
+    try {
+      const [createdAd] = await db.insert(trocAds).values(ad).returning();
+      return createdAd;
+    } catch (error) {
+      console.error('Error in createTrocAd:', error);
+      throw error;
+    }
   }
 
   async updateTrocAd(id: number, adData: Partial<TrocAd>): Promise<TrocAd | undefined> {
