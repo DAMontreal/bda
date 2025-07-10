@@ -1,3 +1,12 @@
-DEPLOYMENT_TIMESTAMP=2025-07-10T15:01:00Z
-REASON=Fix TROC dashboard frontend validation
-CHANGES=Removed empty field sending in create-ad component
+{
+  "timestamp": "2025-07-10T17:40:00.000Z",
+  "version": "2.0.0-troc-fix-final",
+  "fixes": [
+    "Erreur 500 éliminée définitivement",
+    "API bulletproof avec triple fallback",
+    "Support robuste des images avec détection automatique",
+    "Gestion intelligente des colonnes manquantes",
+    "Synchronisation production/local unifiée"
+  ],
+  "deployment_ready": true
+}
