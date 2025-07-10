@@ -970,7 +970,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Utiliser SQL brut pour éviter le cache ORM
       
       let query = `
-        SELECT id, title, description, category, user_id as "userId", created_at as "createdAt"
+        SELECT id, title, description, category, user_id as "userId", created_at as "createdAt", image_url as "imageUrl"
         FROM troc_ads
         WHERE 1=1
       `;
@@ -1029,7 +1029,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Utiliser SQL brut pour éviter le cache ORM
       
       const query = `
-        SELECT id, title, description, category, user_id as "userId", created_at as "createdAt"
+        SELECT id, title, description, category, user_id as "userId", created_at as "createdAt", image_url as "imageUrl"
         FROM troc_ads
         WHERE id = ${id}
       `;
@@ -1101,10 +1101,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Utiliser SQL brut via Drizzle pour éviter le cache du schéma
       console.log('🔧 TROC - Utilisation de SQL brut via db.execute()');
       
+      // Construire la requête avec ou sans image_url
+      let insertColumns = 'title, description, category, user_id, created_at';
+      let insertValues = `'${validatedData.title.replace(/'/g, "''")}', '${validatedData.description.replace(/'/g, "''")}', '${validatedData.category}', ${validatedData.userId}, NOW()`;
+      let returningColumns = 'id, title, description, category, user_id as "userId", created_at as "createdAt"';
+      
+      if (validatedData.imageUrl) {
+        insertColumns += ', image_url';
+        insertValues += `, '${validatedData.imageUrl}'`;
+        returningColumns += ', image_url as "imageUrl"';
+      } else {
+        returningColumns += ', image_url as "imageUrl"';
+      }
+      
       const query = `
-        INSERT INTO troc_ads (title, description, category, user_id, created_at)
-        VALUES ('${validatedData.title.replace(/'/g, "''")}', '${validatedData.description.replace(/'/g, "''")}', '${validatedData.category}', ${validatedData.userId}, NOW())
-        RETURNING id, title, description, category, user_id as "userId", created_at as "createdAt"
+        INSERT INTO troc_ads (${insertColumns})
+        VALUES (${insertValues})
+        RETURNING ${returningColumns}
       `;
       
       console.log('📝 TROC - SQL Direct (sans paramètres):', query);
@@ -1123,7 +1136,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       } else {
         // Fallback : récupérer l'annonce par une nouvelle requête
         const fallbackQuery = `
-          SELECT id, title, description, category, user_id as "userId", created_at as "createdAt"
+          SELECT id, title, description, category, user_id as "userId", created_at as "createdAt", image_url as "imageUrl"
           FROM troc_ads
           WHERE user_id = ${validatedData.userId}
           ORDER BY created_at DESC
@@ -1161,7 +1174,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // Utiliser SQL brut pour récupérer l'annonce
       const getQuery = `
-        SELECT id, title, description, category, user_id as "userId", created_at as "createdAt"
+        SELECT id, title, description, category, user_id as "userId", created_at as "createdAt", image_url as "imageUrl"
         FROM troc_ads
         WHERE id = ${id}
       `;
@@ -1296,7 +1309,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // Utiliser SQL brut pour récupérer l'annonce
       const getQuery = `
-        SELECT id, title, description, category, user_id as "userId", created_at as "createdAt"
+        SELECT id, title, description, category, user_id as "userId", created_at as "createdAt", image_url as "imageUrl"
         FROM troc_ads
         WHERE id = ${id}
       `;
