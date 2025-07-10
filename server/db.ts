@@ -21,12 +21,19 @@ let db: ReturnType<typeof drizzle> | any;
 try {
   console.log("Tentative de connexion à la base de données...");
   
-  // Initialisation du pool avec les timeouts
+  // Initialisation du pool avec les timeouts et gestion SSL améliorée
+  const sslConfig = process.env.NODE_ENV === 'production' 
+    ? { rejectUnauthorized: false } // En production, on accepte les certificats auto-signés ou expirés
+    : undefined;                   // En dev, on utilise les paramètres par défaut
+  
+  console.log("Mode SSL:", process.env.NODE_ENV === 'production' ? "Sécurité réduite (production)" : "Standard (développement)");
+  
   pool = new Pool({ 
     connectionString: process.env.DATABASE_URL,
     connectionTimeoutMillis: 30000, // 30 secondes de timeout
     idleTimeoutMillis: 60000,      // 1 minute d'inactivité max
-    max: 20                        // Nombre max de clients dans le pool
+    max: 20,                       // Nombre max de clients dans le pool
+    ssl: sslConfig
   });
   
   // Initialisation de Drizzle ORM

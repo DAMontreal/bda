@@ -19,6 +19,8 @@ import * as fs from 'fs';
 import { sendPasswordResetEmail } from "./email-service";
 import { resizeProfileImage } from "./image-utils";
 import { uploadTrocImage } from "./api/upload/troc-image";
+import { sql } from "drizzle-orm";
+import { db } from './db';
 
 declare module "express-session" {
   interface SessionData {
@@ -965,12 +967,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const category = req.query.category as string | undefined;
       const limit = req.query.limit ? parseInt(req.query.limit as string) : undefined;
       
-      // Utiliser PostgreSQL direct pour éviter le cache ORM
-      const { Pool } = await import('pg');
-      const directPool = new Pool({
-        connectionString: process.env.DATABASE_URL,
-        ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false
-      });
+      // Utiliser SQL brut pour éviter le cache ORM
       
       let query = `
         SELECT id, title, description, category, user_id as "userId", image_url as "imageUrl", created_at as "createdAt"
@@ -991,10 +988,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         values.push(limit);
       }
       
-      const result = await directPool.query(query, values);
-      await directPool.end();
+      const result = await db.execute(sql.raw(query, values));
       
-      res.status(200).json(result.rows);
+      res.status(200).json(result);
     } catch (error) {
       console.error('Erreur GET /api/troc:', error);
       res.status(500).json({ message: "Internal server error" });
@@ -1009,12 +1005,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "Invalid ad ID" });
       }
       
-      // Utiliser PostgreSQL direct pour éviter le cache ORM
-      const { Pool } = await import('pg');
-      const directPool = new Pool({
-        connectionString: process.env.DATABASE_URL,
-        ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false
-      });
+      // Utiliser SQL brut pour éviter le cache ORM
       
       const query = `
         SELECT id, title, description, category, user_id as "userId", image_url as "imageUrl", created_at as "createdAt"
@@ -1022,14 +1013,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
         WHERE id = $1
       `;
       
-      const result = await directPool.query(query, [id]);
-      await directPool.end();
+      const result = await db.execute(sql.raw(query, [id]));
       
-      if (result.rows.length === 0) {
+      if (result.length === 0) {
         return res.status(404).json({ message: "Ad not found" });
       }
       
-      res.status(200).json(result.rows[0]);
+      res.status(200).json(result[0]);
     } catch (error) {
       console.error('Erreur GET /api/troc/:id:', error);
       res.status(500).json({ message: "Internal server error" });
@@ -1079,12 +1069,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // SYNCHRONISATION ORM FINALE : Bypass complet de Drizzle 
       console.log('🔧 TROC - Bypass complet ORM avec pool PostgreSQL natif');
       
-      // Créer une connexion PostgreSQL directe pour éviter tous les problèmes d'ORM
-      const { Pool } = await import('pg');
-      const directPool = new Pool({
-        connectionString: process.env.DATABASE_URL,
-        ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false
-      });
+      // Utiliser SQL brut via Drizzle pour éviter le cache du schéma
+      console.log('🔧 TROC - Utilisation de SQL brut via db.execute()');
       
       const query = `
         INSERT INTO troc_ads (title, description, category, user_id, image_url, created_at)
@@ -1101,9 +1087,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.log('📝 TROC - SQL Direct:', query);
       console.log('📝 TROC - Values:', values);
       
-      const result = await directPool.query(query, values);
-      const ad = result.rows[0];
-      await directPool.end();
+      const result = await db.execute(sql.raw(query, values));
+      const ad = result[0];
       console.log('🎉 TROC - Ad created via PostgreSQL direct:', ad);
       
       res.status(201).json(ad);
