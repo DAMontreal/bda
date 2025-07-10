@@ -76,6 +76,7 @@ export const trocAds = pgTable("troc_ads", {
   title: text("title").notNull(),
   description: text("description").notNull(),
   category: text("category").notNull(), // 'collaboration', 'equipment', 'service', 'event'
+  imageUrl: text("image_url"),
   userId: integer("user_id").notNull().references(() => users.id),
   createdAt: timestamp("created_at").defaultNow(),
 });
