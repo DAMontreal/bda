@@ -1015,8 +1015,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/troc", requireAuth, async (req, res) => {
     try {
-      console.log('POST /api/troc - Début de la requête');
-      console.log('req.body:', req.body);
+
       
       // Only approved users can create ads
       const user = await storage.getUser(req.session.userId!);
@@ -1036,15 +1035,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       }
 
-      const adData = insertTrocAdSchema.parse({
+      const adData = {
         title: req.body.title,
         description: req.body.description,
         category: req.body.category,
         imageUrl: req.body.imageUrl || null,
         userId: finalUserId,
-      });
+      };
       
-      const ad = await storage.createTrocAd(adData);
+      const validatedData = insertTrocAdSchema.parse(adData);
+      
+      const ad = await storage.createTrocAd(validatedData);
       
       res.status(201).json(ad);
     } catch (error) {

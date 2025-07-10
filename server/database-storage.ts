@@ -118,7 +118,6 @@ export class DatabaseStorage implements IStorage {
   // TrocAd operations
   async getTrocAd(id: number): Promise<TrocAd | undefined> {
     const [ad] = await db.select().from(trocAds).where(eq(trocAds.id, id));
-    console.log(`DatabaseStorage.getTrocAd - ID ${id} - Données récupérées:`, ad);
     return ad;
   }
 
@@ -139,14 +138,11 @@ export class DatabaseStorage implements IStorage {
       result = await baseQuery;
     }
     
-    console.log(`DatabaseStorage.getTrocAds - Première annonce:`, result[0]);
     return result;
   }
 
   async createTrocAd(ad: InsertTrocAd): Promise<TrocAd> {
-    console.log('DatabaseStorage.createTrocAd - données reçues:', ad);
     const [createdAd] = await db.insert(trocAds).values(ad).returning();
-    console.log('DatabaseStorage.createTrocAd - données créées:', createdAd);
     return createdAd;
   }
 
