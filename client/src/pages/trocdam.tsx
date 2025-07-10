@@ -22,9 +22,30 @@ const TrocDam = () => {
   const [createAdOpen, setCreateAdOpen] = useState(false);
   const { isAuthenticated, user } = useAuth();
 
-  // Fetch all TROC'DAM ads
-  const { data: ads, isLoading } = useQuery<TrocAd[]>({
-    queryKey: [`/api/troc${activeCategory ? `?category=${activeCategory}` : ""}`],
+  // Fetch all TROC'DAM ads with robust error handling
+  const { data: ads, isLoading, error } = useQuery<TrocAd[]>({
+    queryKey: activeCategory ? ["/api/troc", { category: activeCategory }] : ["/api/troc"],
+    retry: 3,
+    retryDelay: 1000,
+    queryFn: async () => {
+      console.log('🔍 Fetching TROC ads...', { activeCategory });
+      const params = new URLSearchParams();
+      if (activeCategory) {
+        params.append("category", activeCategory);
+      }
+      const response = await fetch(`/api/troc?${params.toString()}`);
+      console.log('📡 TROC API Response:', response.status, response.statusText);
+      
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('❌ TROC API Error:', errorText);
+        throw new Error(`Failed to fetch ads: ${response.status} ${response.statusText}`);
+      }
+      
+      const data = await response.json();
+      console.log('✅ TROC Data received:', data.length, 'ads');
+      return data;
+    },
   });
 
   return (
@@ -133,6 +154,18 @@ const TrocDam = () => {
             </div>
           ))}
         </div>
+      ) : error ? (
+        <Card>
+          <CardContent className="p-6 text-center">
+            <h3 className="text-xl font-medium mb-2 text-red-600">Erreur de chargement</h3>
+            <p className="text-gray-500 mb-4">
+              Impossible de charger les annonces. Veuillez réessayer.
+            </p>
+            <Button onClick={() => window.location.reload()}>
+              Recharger la page
+            </Button>
+          </CardContent>
+        </Card>
       ) : ads && ads.length > 0 ? (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           {ads.map(ad => (
