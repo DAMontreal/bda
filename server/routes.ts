@@ -1015,10 +1015,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/troc", requireAuth, async (req, res) => {
     try {
-
+      console.log('POST /api/troc - Début de la requête, body:', req.body);
       
       // Only approved users can create ads
       const user = await storage.getUser(req.session.userId!);
+      console.log('User found:', user ? { id: user.id, isApproved: user.isApproved } : 'null');
       
       if (!user || !user.isApproved) {
         return res.status(403).json({ message: "Only approved artists can create ads" });
@@ -1043,17 +1044,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
         userId: finalUserId,
       };
       
+      console.log('adData prepared:', adData);
       const validatedData = insertTrocAdSchema.parse(adData);
+      console.log('adData validated:', validatedData);
       
       const ad = await storage.createTrocAd(validatedData);
+      console.log('Ad created:', ad);
       
       res.status(201).json(ad);
     } catch (error) {
+      console.error('Full error in POST /api/troc:', error);
       if (error instanceof z.ZodError) {
+        console.error('Zod validation errors:', error.errors);
         return res.status(400).json({ message: "Invalid input", errors: error.errors });
       }
-      console.error('Error creating troc ad:', error);
-      res.status(500).json({ message: "Internal server error" });
+      res.status(500).json({ message: "Internal server error", error: error.message });
     }
   });
 
