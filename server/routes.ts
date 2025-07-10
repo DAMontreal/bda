@@ -1049,12 +1049,32 @@ export async function registerRoutes(app: Express): Promise<Server> {
         adData.imageUrl = req.body.imageUrl;
       }
       
-      console.log('adData prepared:', adData);
+      console.log('🎯 TROC - adData prepared:', adData);
       const validatedData = insertTrocAdSchema.parse(adData);
-      console.log('adData validated:', validatedData);
+      console.log('✅ TROC - adData validated:', validatedData);
       
-      const ad = await storage.createTrocAd(validatedData);
-      console.log('Ad created:', ad);
+      // SYNCHRONISATION ORM : Utiliser SQL direct pour éviter les problèmes de cache
+      console.log('🔧 TROC - Utilisation SQL direct pour éviter cache ORM');
+      const query = `
+        INSERT INTO troc_ads (title, description, category, user_id, image_url, created_at)
+        VALUES ($1, $2, $3, $4, $5, NOW())
+        RETURNING id, title, description, category, user_id as "userId", image_url as "imageUrl", created_at as "createdAt"
+      `;
+      const values = [
+        validatedData.title,
+        validatedData.description, 
+        validatedData.category,
+        validatedData.userId,
+        validatedData.imageUrl || null
+      ];
+      console.log('📝 TROC - SQL Query:', query);
+      console.log('📝 TROC - Values:', values);
+      
+      // Utiliser Pool PostgreSQL direct au lieu de Drizzle pour éviter le cache ORM
+      const { pool } = await import('./db.js');
+      const result = await pool.query(query, values);
+      const ad = result.rows[0];
+      console.log('🎉 TROC - Ad created via SQL:', ad);
       
       res.status(201).json(ad);
     } catch (error) {
