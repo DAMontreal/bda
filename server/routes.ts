@@ -967,70 +967,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const category = req.query.category as string | undefined;
       const limit = req.query.limit ? parseInt(req.query.limit as string) : undefined;
       
-      // Stratégie robuste : essayer d'abord avec image_url, puis fallback
-      let query = `
-        SELECT id, title, description, category, user_id as "userId", created_at as "createdAt", 
-               COALESCE(image_url, NULL) as "imageUrl"
-        FROM troc_ads
-        WHERE 1=1
-      `;
+      // Approche ultra-simple : directement via storage interface
+      console.log('📋 TROC - Using storage interface');
+      const ads = await storage.getTrocAds({ category, limit });
       
-      if (category) {
-        query += ` AND category = '${category}'`;
-      }
-      
-      query += ' ORDER BY created_at DESC';
-      
-      if (limit) {
-        query += ` LIMIT ${limit}`;
-      }
-      
-      console.log('📋 TROC - Executing query:', query);
-      
-      const result = await db.execute(sql.raw(query));
-      console.log('📋 TROC - Query executed successfully');
-      
-      // Extraire le tableau de données depuis le résultat SQL
-      let ads = [];
-      if (result.rows && Array.isArray(result.rows)) {
-        ads = result.rows;
-      } else if (Array.isArray(result)) {
-        ads = result;
-      } else {
-        console.warn('⚠️ TROC - Format résultat inattendu, renvoi tableau vide');
-        ads = [];
-      }
-      
-      console.log('📋 TROC - Final ads array:', ads.length, 'items');
+      console.log('📋 TROC - Storage returned:', ads.length, 'items');
       res.status(200).json(ads);
     } catch (error) {
       console.error('Erreur GET /api/troc:', error);
-      console.error('Error details:', error.message);
-      
-      // Fallback simple sans image_url en cas d'erreur
-      try {
-        console.log('📋 TROC - Attempting fallback without image_url');
-        const fallbackQuery = `
-          SELECT id, title, description, category, user_id as "userId", created_at as "createdAt"
-          FROM troc_ads
-          ORDER BY created_at DESC
-        `;
-        
-        const fallbackResult = await db.execute(sql.raw(fallbackQuery));
-        const fallbackAds = fallbackResult.rows || fallbackResult || [];
-        
-        // Ajouter imageUrl null à toutes les annonces
-        const adsWithImageUrl = fallbackAds.map(ad => ({
-          ...ad,
-          imageUrl: null
-        }));
-        
-        console.log('📋 TROC - Fallback successful:', adsWithImageUrl.length, 'items');
-        res.status(200).json(adsWithImageUrl);
-      } catch (fallbackError) {
-        console.error('Fallback aussi échoué:', fallbackError);
-        res.status(500).json({ message: "Internal server error" });
-      }
+      res.status(500).json({ message: "Internal server error" });
     }
   });
 
@@ -1042,24 +987,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "Invalid ad ID" });
       }
       
-      // Utiliser SQL brut pour éviter le cache ORM
-      
-      const query = `
-        SELECT id, title, description, category, user_id as "userId", created_at as "createdAt", 
-               COALESCE(image_url, NULL) as "imageUrl"
-        FROM troc_ads
-        WHERE id = ${id}
-      `;
-      
-      const result = await db.execute(sql.raw(query));
-      
-      // Extraire l'annonce depuis le résultat SQL
-      let ad = null;
-      if (result.rows && result.rows.length > 0) {
-        ad = result.rows[0];
-      } else if (result[0]) {
-        ad = result[0];
-      }
+      // Utiliser storage interface simple
+      const ad = await storage.getTrocAd(id);
       
       if (!ad) {
         return res.status(404).json({ message: "Ad not found" });
