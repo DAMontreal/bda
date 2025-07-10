@@ -1159,7 +1159,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "Invalid ad ID" });
       }
       
-      const ad = await storage.getTrocAd(id);
+      // Utiliser SQL brut pour récupérer l'annonce
+      const getQuery = `
+        SELECT id, title, description, category, user_id as "userId", created_at as "createdAt"
+        FROM troc_ads
+        WHERE id = ${id}
+      `;
+      
+      const getResult = await db.execute(sql.raw(getQuery));
+      let ad = null;
+      if (getResult.rows && getResult.rows.length > 0) {
+        ad = getResult.rows[0];
+      } else if (getResult[0]) {
+        ad = getResult[0];
+      }
       
       if (!ad) {
         return res.status(404).json({ message: "Ad not found" });
@@ -1243,7 +1256,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       console.log('Updating ad with data:', updateData);
-      const updatedAd = await storage.updateTrocAd(id, updateData);
+      
+      // Utiliser SQL brut pour la mise à jour
+      const updateQuery = `
+        UPDATE troc_ads 
+        SET title = '${updateData.title.replace(/'/g, "''")}',
+            description = '${updateData.description.replace(/'/g, "''")}',
+            category = '${updateData.category}'
+        WHERE id = ${id}
+        RETURNING id, title, description, category, user_id as "userId", created_at as "createdAt"
+      `;
+      
+      const updateResult = await db.execute(sql.raw(updateQuery));
+      let updatedAd = null;
+      if (updateResult.rows && updateResult.rows.length > 0) {
+        updatedAd = updateResult.rows[0];
+      } else if (updateResult[0]) {
+        updatedAd = updateResult[0];
+      }
       
       if (!updatedAd) {
         return res.status(404).json({ message: "Ad not found" });
@@ -1264,7 +1294,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "Invalid ad ID" });
       }
       
-      const ad = await storage.getTrocAd(id);
+      // Utiliser SQL brut pour récupérer l'annonce
+      const getQuery = `
+        SELECT id, title, description, category, user_id as "userId", created_at as "createdAt"
+        FROM troc_ads
+        WHERE id = ${id}
+      `;
+      
+      const getResult = await db.execute(sql.raw(getQuery));
+      let ad = null;
+      if (getResult.rows && getResult.rows.length > 0) {
+        ad = getResult.rows[0];
+      } else if (getResult[0]) {
+        ad = getResult[0];
+      }
       
       if (!ad) {
         return res.status(404).json({ message: "Ad not found" });
@@ -1275,12 +1318,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(403).json({ message: "Forbidden" });
       }
       
-      const success = await storage.deleteTrocAd(id);
+      // Utiliser SQL brut pour la suppression
+      const deleteQuery = `DELETE FROM troc_ads WHERE id = ${id}`;
+      const deleteResult = await db.execute(sql.raw(deleteQuery));
       
-      if (!success) {
-        return res.status(404).json({ message: "Ad not found" });
-      }
-      
+      console.log('🗑️ TROC - Delete result:', deleteResult);
       res.status(204).send();
     } catch (error) {
       res.status(500).json({ message: "Internal server error" });
