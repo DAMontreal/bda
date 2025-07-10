@@ -70,12 +70,19 @@ const TrocAdCard = ({ ad }: TrocAdCardProps) => {
     <Card className="border border-gray-300 rounded-lg hover:border-[#FF5500] transition-colors overflow-hidden">
       <Link href={`/troc/${ad.id}`}>
         <div className="cursor-pointer">
-          {ad.imageUrl && (
+          {ad.imageUrl && ad.imageUrl !== "null" && ad.imageUrl.trim() !== "" && (
             <div className="aspect-video w-full overflow-hidden">
               <img
                 src={ad.imageUrl}
                 alt={ad.title}
                 className="w-full h-full object-cover"
+                onError={(e) => {
+                  console.log('❌ Image failed to load:', ad.imageUrl);
+                  e.currentTarget.style.display = 'none';
+                }}
+                onLoad={() => {
+                  console.log('✅ Image loaded successfully:', ad.imageUrl);
+                }}
               />
             </div>
           )}
@@ -98,64 +105,59 @@ const TrocAdCard = ({ ad }: TrocAdCardProps) => {
       </Link>
       <div className="p-4">
         <div className="flex justify-between items-center">
-          <div className="flex items-center">
-            <Avatar className="h-8 w-8 mr-2">
-              <AvatarImage 
-                src={user?.profileImage || ""}
-                alt={user ? `${user.firstName} ${user.lastName}` : "Utilisateur"}
-              />
-              <AvatarFallback>
-                {user ? getInitials(user.firstName, user.lastName) : "?"}
-              </AvatarFallback>
-            </Avatar>
-            {user ? (
-              <span className="text-sm">
-                {user.firstName} {user.lastName.charAt(0)}.
-              </span>
-            ) : (
-              <span className="text-sm">Utilisateur</span>
-            )}
-          </div>
-          <div className="flex items-center gap-2">
-            <span className="text-xs text-gray-500">{formatTimeAgo(ad.createdAt || new Date())}</span>
-            
-            {/* Edit/Delete controls - pour le créateur ou l'admin */}
-            {(currentUser && (currentUser.id === ad.userId || isAdmin)) && (
-              <div className="flex gap-1">
-                <Link href={`/troc/${ad.id}/edit`}>
-                  <Button 
-                    size="sm" 
-                    variant="outline" 
-                    className="h-7 w-7 p-0" 
-                    onClick={(e) => e.stopPropagation()}
-                    title="Modifier l'annonce"
-                  >
-                    <Edit className="h-3 w-3" />
-                  </Button>
+          {user && (
+            <div className="flex items-center space-x-3">
+              <Avatar className="h-8 w-8">
+                <AvatarImage src={user.profileImage || ""} alt={`${user.firstName} ${user.lastName}`} />
+                <AvatarFallback className="bg-gray-300 text-gray-600 text-xs">
+                  {getInitials(user.firstName, user.lastName)}
+                </AvatarFallback>
+              </Avatar>
+              <div className="flex flex-col">
+                <span className="text-sm font-medium">
+                  {user.firstName} {user.lastName}
+                </span>
+                <span className="text-xs text-gray-500">
+                  {formatTimeAgo(new Date(ad.createdAt))}
+                </span>
+              </div>
+            </div>
+          )}
+          
+          <div className="flex items-center space-x-2">
+            {isAuthenticated && (
+              <Button variant="outline" size="sm" asChild>
+                <Link href={`/messages?with=${ad.userId}`}>
+                  <MessageSquare className="h-4 w-4" />
                 </Link>
+              </Button>
+            )}
+            
+            {/* Boutons d'édition et suppression pour les propriétaires et admins */}
+            {isAuthenticated && (currentUser?.id === ad.userId || isAdmin) && (
+              <>
+                <Button variant="outline" size="sm" asChild>
+                  <Link href={`/troc/${ad.id}/edit`}>
+                    <Edit className="h-4 w-4" />
+                  </Link>
+                </Button>
                 
                 <AlertDialog>
                   <AlertDialogTrigger asChild>
-                    <Button 
-                      size="sm" 
-                      variant="outline" 
-                      className="h-7 w-7 p-0 text-red-600 hover:text-red-700 hover:bg-red-50" 
-                      onClick={(e) => e.stopPropagation()}
-                      title="Supprimer l'annonce"
-                    >
-                      <Trash2 className="h-3 w-3" />
+                    <Button variant="outline" size="sm" className="text-red-600 hover:text-red-700">
+                      <Trash2 className="h-4 w-4" />
                     </Button>
                   </AlertDialogTrigger>
                   <AlertDialogContent>
                     <AlertDialogHeader>
                       <AlertDialogTitle>Supprimer l'annonce</AlertDialogTitle>
                       <AlertDialogDescription>
-                        Êtes-vous sûr de vouloir supprimer cette annonce ? Cette action ne peut pas être annulée.
+                        Êtes-vous sûr de vouloir supprimer cette annonce ? Cette action est irréversible.
                       </AlertDialogDescription>
                     </AlertDialogHeader>
                     <AlertDialogFooter>
                       <AlertDialogCancel>Annuler</AlertDialogCancel>
-                      <AlertDialogAction
+                      <AlertDialogAction 
                         onClick={() => deleteAdMutation.mutate(ad.id)}
                         className="bg-red-600 hover:bg-red-700"
                       >
@@ -164,22 +166,7 @@ const TrocAdCard = ({ ad }: TrocAdCardProps) => {
                     </AlertDialogFooter>
                   </AlertDialogContent>
                 </AlertDialog>
-              </div>
-            )}
-            
-            {isAuthenticated && user && (
-              <Button 
-                size="sm" 
-                variant="outline" 
-                className="h-8 px-2 text-sm flex items-center gap-1" 
-                onClick={(e) => {
-                  e.preventDefault();
-                  e.stopPropagation();
-                  window.location.href = `/messages/${user.id}`;
-                }}
-              >
-                <MessageSquare className="h-4 w-4" /> Contacter
-              </Button>
+              </>
             )}
           </div>
         </div>
