@@ -970,7 +970,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Utiliser SQL brut pour éviter le cache ORM
       
       let query = `
-        SELECT id, title, description, category, user_id as "userId", image_url as "imageUrl", created_at as "createdAt"
+        SELECT id, title, description, category, user_id as "userId", created_at as "createdAt"
         FROM troc_ads
         WHERE 1=1
       `;
@@ -988,7 +988,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
         values.push(limit);
       }
       
-      const result = await db.execute(sql.raw(query, values));
+      // Construire la requête avec les paramètres intégrés pour éviter l'erreur $1
+      let finalQuery = query;
+      values.forEach((value, index) => {
+        finalQuery = finalQuery.replace('$' + (index + 1), `'${value}'`);
+      });
+      
+      const result = await db.execute(sql.raw(finalQuery));
       
       res.status(200).json(result);
     } catch (error) {
@@ -1008,12 +1014,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Utiliser SQL brut pour éviter le cache ORM
       
       const query = `
-        SELECT id, title, description, category, user_id as "userId", image_url as "imageUrl", created_at as "createdAt"
+        SELECT id, title, description, category, user_id as "userId", created_at as "createdAt"
         FROM troc_ads
-        WHERE id = $1
+        WHERE id = ${id}
       `;
       
-      const result = await db.execute(sql.raw(query, [id]));
+      const result = await db.execute(sql.raw(query));
       
       if (result.length === 0) {
         return res.status(404).json({ message: "Ad not found" });
@@ -1073,23 +1079,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.log('🔧 TROC - Utilisation de SQL brut via db.execute()');
       
       const query = `
-        INSERT INTO troc_ads (title, description, category, user_id, image_url, created_at)
-        VALUES ($1, $2, $3, $4, $5, NOW())
-        RETURNING id, title, description, category, user_id as "userId", image_url as "imageUrl", created_at as "createdAt"
+        INSERT INTO troc_ads (title, description, category, user_id, created_at)
+        VALUES ('${validatedData.title.replace(/'/g, "''")}', '${validatedData.description.replace(/'/g, "''")}', '${validatedData.category}', ${validatedData.userId}, NOW())
+        RETURNING id, title, description, category, user_id as "userId", created_at as "createdAt"
       `;
-      const values = [
-        validatedData.title,
-        validatedData.description, 
-        validatedData.category,
-        validatedData.userId,
-        validatedData.imageUrl || null
-      ];
-      console.log('📝 TROC - SQL Direct:', query);
-      console.log('📝 TROC - Values:', values);
       
-      const result = await db.execute(sql.raw(query, values));
+      console.log('📝 TROC - SQL Direct (sans paramètres):', query);
+      
+      const result = await db.execute(sql.raw(query));
       const ad = result[0];
-      console.log('🎉 TROC - Ad created via PostgreSQL direct:', ad);
+      console.log('🎉 TROC - Ad created via SQL direct:', ad);
       
       res.status(201).json(ad);
     } catch (error) {
@@ -1476,6 +1475,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Create HTTP server
+  // API Admin pour exécuter du SQL direct (migration de colonne)
+  app.post("/api/admin/execute-sql", requireAuth, requireAdmin, async (req, res) => {
+    try {
+      console.log('🔧 ADMIN SQL - Execution directe:', req.body.query);
+      
+      const result = await db.execute(sql.raw(req.body.query));
+      console.log('✅ ADMIN SQL - Résultat:', result);
+      
+      res.status(200).json({ success: true, result });
+    } catch (error) {
+      console.error('❌ ADMIN SQL - Erreur:', error);
+      res.status(500).json({ success: false, error: error.message });
+    }
+  });
+
   const httpServer = createServer(app);
   return httpServer;
 }
