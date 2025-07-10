@@ -965,32 +965,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/troc", async (req, res) => {
     console.log('📋 TROC - GET /api/troc appelé');
     
-    // Approche 100% compatible : utiliser directement la base SQL sans ORM
+    // Solution simple et robuste : utiliser storage avec fallback
     try {
-      // Utiliser Pool PostgreSQL direct pour garantir la compatibilité
-      const { Pool } = require('pg');
-      const pool = new Pool({ connectionString: process.env.DATABASE_URL });
+      // Essayer d'abord avec notre storage interface
+      const category = req.query.category as string | undefined;
+      const limit = req.query.limit ? parseInt(req.query.limit as string) : undefined;
       
-      // Requête SQL avec gestion robuste de la colonne image_url
-      let query = `
-        SELECT 
-          id, 
-          title, 
-          description, 
-          category, 
-          user_id as "userId", 
-          created_at as "createdAt"
-        FROM troc_ads 
-        ORDER BY created_at DESC 
-        LIMIT 50
-      `;
+      console.log('📋 TROC - Tentative storage interface');
+      const ads = await storage.getTrocAds({ category, limit });
+      console.log('📋 TROC - Storage réussi:', ads.length, 'annonces');
       
-      // Essayer d'abord avec image_url, sinon continuer sans
+      res.setHeader('Content-Type', 'application/json');
+      return res.status(200).json(ads);
+      
+    } catch (storageError) {
+      console.log('📋 TROC - Storage échoué, tentative SQL direct');
+      
+      // Fallback avec SQL direct utilisant notre pool existant
       try {
-        const testQuery = `SELECT image_url FROM troc_ads LIMIT 1`;
-        await pool.query(testQuery);
-        // Si pas d'erreur, ajouter image_url à la requête principale
-        query = `
+        const result = await pool.query(`
           SELECT 
             id, 
             title, 
@@ -1002,47 +995,61 @@ export async function registerRoutes(app: Express): Promise<Server> {
           FROM troc_ads 
           ORDER BY created_at DESC 
           LIMIT 50
-        `;
-        console.log('📋 TROC - Colonne image_url disponible');
-      } catch (imageError) {
-        console.log('📋 TROC - Colonne image_url non disponible, continuant sans');
-      }
-      
-      console.log('📋 TROC - Exécution requête SQL directe');
-      const result = await pool.query(query);
-      await pool.end();
-      
-      let ads = result.rows || [];
-      
-      // Ajouter imageUrl: null si ce champ n'existe pas
-      if (ads.length > 0 && !ads[0].hasOwnProperty('imageUrl')) {
-        ads = ads.map(ad => ({ ...ad, imageUrl: null }));
-      }
-      
-      console.log('📋 TROC - Succès SQL direct:', ads.length, 'annonces');
-      
-      res.setHeader('Content-Type', 'application/json');
-      return res.status(200).json(ads);
-      
-    } catch (sqlError) {
-      console.error('📋 TROC - Erreur SQL direct:', sqlError.message);
-      
-      // Fallback final : données de secours
-      const fallbackAds = [
-        {
-          id: 1,
-          title: "Service temporairement indisponible",
-          description: "Les annonces TROC'DAM sont temporairement indisponibles. Veuillez réessayer plus tard.",
-          category: "services",
-          userId: 1,
-          createdAt: new Date().toISOString(),
-          imageUrl: null
+        `);
+        
+        const ads = result.rows || [];
+        console.log('📋 TROC - SQL direct réussi:', ads.length, 'annonces');
+        
+        res.setHeader('Content-Type', 'application/json');
+        return res.status(200).json(ads);
+        
+      } catch (sqlError) {
+        console.log('📋 TROC - SQL direct échoué, tentative sans image_url');
+        
+        // Dernier essai sans image_url
+        try {
+          const result = await pool.query(`
+            SELECT 
+              id, 
+              title, 
+              description, 
+              category, 
+              user_id as "userId", 
+              created_at as "createdAt"
+            FROM troc_ads 
+            ORDER BY created_at DESC 
+            LIMIT 50
+          `);
+          
+          let ads = result.rows || [];
+          ads = ads.map(ad => ({ ...ad, imageUrl: null }));
+          
+          console.log('📋 TROC - SQL sans image_url réussi:', ads.length, 'annonces');
+          
+          res.setHeader('Content-Type', 'application/json');
+          return res.status(200).json(ads);
+          
+        } catch (finalError) {
+          console.error('📋 TROC - Toutes les tentatives échouées:', finalError.message);
+          
+          // Fallback final : données de secours
+          const fallbackAds = [
+            {
+              id: 1,
+              title: "Service temporairement indisponible",
+              description: "Les annonces TROC'DAM sont temporairement indisponibles. Veuillez réessayer plus tard.",
+              category: "services",
+              userId: 1,
+              createdAt: new Date().toISOString(),
+              imageUrl: null
+            }
+          ];
+          
+          console.log('📋 TROC - Utilisation fallback de secours');
+          res.setHeader('Content-Type', 'application/json');
+          return res.status(200).json(fallbackAds);
         }
-      ];
-      
-      console.log('📋 TROC - Utilisation fallback de secours');
-      res.setHeader('Content-Type', 'application/json');
-      return res.status(200).json(fallbackAds);
+      }
     }
   });
 
