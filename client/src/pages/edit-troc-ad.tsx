@@ -27,7 +27,7 @@ type EditTrocAdForm = z.infer<typeof editTrocAdSchema>;
 export default function EditTrocAdPage() {
   const [, params] = useRoute("/troc/:id/edit");
   const [, setLocation] = useLocation();
-  const { isAdmin, isLoading: authLoading } = useAuth();
+  const { isAdmin, isLoading: authLoading, user: currentUser } = useAuth();
   const { toast } = useToast();
   const [selectedImages, setSelectedImages] = useState<File[]>([]);
   const [currentImage, setCurrentImage] = useState<string | null>(null);
@@ -40,12 +40,14 @@ export default function EditTrocAdPage() {
 
   const adId = params?.id ? parseInt(params.id) : null;
 
-  // Redirect if not admin (but wait for auth to load)
+  // Redirect if not admin or not owner (but wait for auth to load)
   useEffect(() => {
-    if (!authLoading && !isAdmin) {
+    if (!authLoading && !currentUser) {
+      setLocation("/login");
+    } else if (!authLoading && ad && currentUser && !isAdmin && ad.userId !== currentUser.id) {
       setLocation("/");
     }
-  }, [isAdmin, authLoading, setLocation]);
+  }, [isAdmin, authLoading, setLocation, currentUser, ad]);
 
   // Fetch the ad data
   const { data: ad, isLoading } = useQuery<TrocAd>({
@@ -166,7 +168,10 @@ export default function EditTrocAdPage() {
     );
   }
 
-  if (!isAdmin) {
+  // Allow editing if user is admin or if they own the ad
+  const canEdit = isAdmin || (currentUser && ad && ad.userId === currentUser.id);
+  
+  if (!canEdit) {
     return null;
   }
 
@@ -255,30 +260,32 @@ export default function EditTrocAdPage() {
                   )}
                 </div>
 
-                {/* Admin User Assignment */}
-                <div>
-                  <Label htmlFor="assignedUserId">Attribué à</Label>
-                  <Select
-                    value={form.watch("assignedUserId")}
-                    onValueChange={(value) => form.setValue("assignedUserId", value)}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Sélectionnez un membre" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="none">Aucune attribution spécifique</SelectItem>
-                      {users.map(user => (
-                        <SelectItem key={user.id} value={user.id.toString()}>
-                          {user.firstName} {user.lastName} (@{user.username})
-                          {!user.isApproved && <span className="text-gray-500 ml-2">(En attente)</span>}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <p className="text-sm text-gray-600 mt-1">
-                    Vous pouvez modifier l'attribution de cette annonce à un autre membre
-                  </p>
-                </div>
+                {/* Admin User Assignment - uniquement pour les admins */}
+                {isAdmin && (
+                  <div>
+                    <Label htmlFor="assignedUserId">Attribué à</Label>
+                    <Select
+                      value={form.watch("assignedUserId")}
+                      onValueChange={(value) => form.setValue("assignedUserId", value)}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Sélectionnez un membre" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="none">Aucune attribution spécifique</SelectItem>
+                        {users.map(user => (
+                          <SelectItem key={user.id} value={user.id.toString()}>
+                            {user.firstName} {user.lastName} (@{user.username})
+                            {!user.isApproved && <span className="text-gray-500 ml-2">(En attente)</span>}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <p className="text-sm text-gray-600 mt-1">
+                      Vous pouvez modifier l'attribution de cette annonce à un autre membre
+                    </p>
+                  </div>
+                )}
 
                 {/* Image Upload Section */}
                 <div>
