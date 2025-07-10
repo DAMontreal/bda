@@ -965,10 +965,38 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const category = req.query.category as string | undefined;
       const limit = req.query.limit ? parseInt(req.query.limit as string) : undefined;
       
-      const ads = await storage.getTrocAds({ category, limit });
+      // Utiliser PostgreSQL direct pour éviter le cache ORM
+      const { Pool } = await import('pg');
+      const directPool = new Pool({
+        connectionString: process.env.DATABASE_URL,
+        ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false
+      });
       
-      res.status(200).json(ads);
+      let query = `
+        SELECT id, title, description, category, user_id as "userId", image_url as "imageUrl", created_at as "createdAt"
+        FROM troc_ads
+        WHERE 1=1
+      `;
+      const values: any[] = [];
+      
+      if (category) {
+        query += ' AND category = $' + (values.length + 1);
+        values.push(category);
+      }
+      
+      query += ' ORDER BY created_at DESC';
+      
+      if (limit) {
+        query += ' LIMIT $' + (values.length + 1);
+        values.push(limit);
+      }
+      
+      const result = await directPool.query(query, values);
+      await directPool.end();
+      
+      res.status(200).json(result.rows);
     } catch (error) {
+      console.error('Erreur GET /api/troc:', error);
       res.status(500).json({ message: "Internal server error" });
     }
   });
@@ -981,34 +1009,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "Invalid ad ID" });
       }
       
-      const ad = await storage.getTrocAd(id);
+      // Utiliser PostgreSQL direct pour éviter le cache ORM
+      const { Pool } = await import('pg');
+      const directPool = new Pool({
+        connectionString: process.env.DATABASE_URL,
+        ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false
+      });
       
-      if (!ad) {
+      const query = `
+        SELECT id, title, description, category, user_id as "userId", image_url as "imageUrl", created_at as "createdAt"
+        FROM troc_ads
+        WHERE id = $1
+      `;
+      
+      const result = await directPool.query(query, [id]);
+      await directPool.end();
+      
+      if (result.rows.length === 0) {
         return res.status(404).json({ message: "Ad not found" });
       }
       
-      res.status(200).json(ad);
+      res.status(200).json(result.rows[0]);
     } catch (error) {
-      res.status(500).json({ message: "Internal server error" });
-    }
-  });
-
-  app.get("/api/troc/:id", async (req, res) => {
-    try {
-      const id = parseInt(req.params.id);
-      
-      if (isNaN(id)) {
-        return res.status(400).json({ message: "Invalid ad ID" });
-      }
-      
-      const ad = await storage.getTrocAd(id);
-      
-      if (!ad) {
-        return res.status(404).json({ message: "Ad not found" });
-      }
-      
-      res.status(200).json(ad);
-    } catch (error) {
+      console.error('Erreur GET /api/troc/:id:', error);
       res.status(500).json({ message: "Internal server error" });
     }
   });
@@ -1053,8 +1076,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const validatedData = insertTrocAdSchema.parse(adData);
       console.log('✅ TROC - adData validated:', validatedData);
       
-      // SYNCHRONISATION ORM : Utiliser SQL direct pour éviter les problèmes de cache
-      console.log('🔧 TROC - Utilisation SQL direct pour éviter cache ORM');
+      // SYNCHRONISATION ORM FINALE : Bypass complet de Drizzle 
+      console.log('🔧 TROC - Bypass complet ORM avec pool PostgreSQL natif');
+      
+      // Créer une connexion PostgreSQL directe pour éviter tous les problèmes d'ORM
+      const { Pool } = await import('pg');
+      const directPool = new Pool({
+        connectionString: process.env.DATABASE_URL,
+        ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false
+      });
+      
       const query = `
         INSERT INTO troc_ads (title, description, category, user_id, image_url, created_at)
         VALUES ($1, $2, $3, $4, $5, NOW())
@@ -1067,14 +1098,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
         validatedData.userId,
         validatedData.imageUrl || null
       ];
-      console.log('📝 TROC - SQL Query:', query);
+      console.log('📝 TROC - SQL Direct:', query);
       console.log('📝 TROC - Values:', values);
       
-      // Utiliser Pool PostgreSQL direct au lieu de Drizzle pour éviter le cache ORM
-      const { pool } = await import('./db.js');
-      const result = await pool.query(query, values);
+      const result = await directPool.query(query, values);
       const ad = result.rows[0];
-      console.log('🎉 TROC - Ad created via SQL:', ad);
+      await directPool.end();
+      console.log('🎉 TROC - Ad created via PostgreSQL direct:', ad);
       
       res.status(201).json(ad);
     } catch (error) {
