@@ -1063,81 +1063,110 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "Invalid ad ID" });
       }
       
-      // Stratégie triple fallback pour une seule annonce (même logique que la liste)
+      // Stratégie quadruple fallback universelle (Local + Production)
       try {
-        console.log('📋 TROC-ID - Tentative storage interface');
+        console.log('📋 TROC-ID - Tentative 1: storage interface');
         const ad = await storage.getTrocAd(id);
         
-        if (!ad) {
-          return res.status(404).json({ message: "Ad not found" });
+        if (ad) {
+          console.log('📋 TROC-ID - Storage réussi:', ad.title);
+          return res.status(200).json(ad);
         }
         
-        console.log('📋 TROC-ID - Storage réussi:', ad.title);
-        return res.status(200).json(ad);
+        console.log('📋 TROC-ID - Storage ne trouve pas l\'annonce, tentative SQL direct');
         
       } catch (storageError) {
-        console.log('📋 TROC-ID - Storage échoué, tentative SQL direct');
-        
-        // Fallback avec SQL direct
-        try {
-          const result = await pool.query(`
-            SELECT 
-              id, 
-              title, 
-              description, 
-              category, 
-              user_id as "userId", 
-              created_at as "createdAt",
-              COALESCE(image_url, NULL) as "imageUrl"
-            FROM troc_ads 
-            WHERE id = $1
-          `, [id]);
-          
-          if (result.rows.length === 0) {
-            return res.status(404).json({ message: "Ad not found" });
-          }
-          
-          const ad = result.rows[0];
-          console.log('📋 TROC-ID - SQL direct réussi:', ad.title);
-          
-          res.setHeader('Content-Type', 'application/json');
-          return res.status(200).json(ad);
-          
-        } catch (sqlError) {
-          console.log('📋 TROC-ID - SQL direct échoué, tentative sans image_url');
-          
-          // Dernier essai sans image_url
-          try {
-            const result = await pool.query(`
-              SELECT 
-                id, 
-                title, 
-                description, 
-                category, 
-                user_id as "userId", 
-                created_at as "createdAt"
-              FROM troc_ads 
-              WHERE id = $1
-            `, [id]);
-            
-            if (result.rows.length === 0) {
-              return res.status(404).json({ message: "Ad not found" });
-            }
-            
-            let ad = result.rows[0];
-            ad.imageUrl = null; // Ajouter imageUrl null
-            
-            console.log('📋 TROC-ID - SQL sans image_url réussi:', ad.title);
-            
-            res.setHeader('Content-Type', 'application/json');
-            return res.status(200).json(ad);
-            
-          } catch (finalError) {
-            console.error('📋 TROC-ID - Toutes les tentatives échouées:', finalError.message);
-            return res.status(404).json({ message: "Ad not found" });
-          }
-        }
+        console.log('📋 TROC-ID - Storage en erreur:', storageError.message);
       }
+        
+      // Fallback 1: SQL direct avec image_url
+      try {
+        console.log('📋 TROC-ID - Tentative 2: SQL avec image_url');
+        const result = await pool.query(`
+          SELECT 
+            id, 
+            title, 
+            description, 
+            category, 
+            user_id as "userId", 
+            created_at as "createdAt",
+            COALESCE(image_url, NULL) as "imageUrl"
+          FROM troc_ads 
+          WHERE id = $1
+        `, [id]);
+        
+        if (result.rows.length > 0) {
+          const ad = result.rows[0];
+          console.log('📋 TROC-ID - SQL avec image_url réussi:', ad.title);
+          return res.status(200).json(ad);
+        }
+        
+      } catch (sqlError) {
+        console.log('📋 TROC-ID - SQL avec image_url échoué:', sqlError.message);
+      }
+      
+      // Fallback 2: SQL sans image_url
+      try {
+        console.log('📋 TROC-ID - Tentative 3: SQL sans image_url');
+        const result = await pool.query(`
+          SELECT 
+            id, 
+            title, 
+            description, 
+            category, 
+            user_id as "userId", 
+            created_at as "createdAt"
+          FROM troc_ads 
+          WHERE id = $1
+        `, [id]);
+        
+        if (result.rows.length > 0) {
+          let ad = result.rows[0];
+          ad.imageUrl = null; // Ajouter imageUrl null
+          
+          console.log('📋 TROC-ID - SQL sans image_url réussi:', ad.title);
+          return res.status(200).json(ad);
+        }
+        
+      } catch (finalSqlError) {
+        console.log('📋 TROC-ID - SQL sans image_url échoué:', finalSqlError.message);
+      }
+      
+      // Fallback 3: Via db.execute (pour les cas de cache ORM)
+      try {
+        console.log('📋 TROC-ID - Tentative 4: db.execute bypass');
+        const result = await db.execute(sql.raw(`
+          SELECT 
+            id, 
+            title, 
+            description, 
+            category, 
+            user_id as "userId", 
+            created_at as "createdAt",
+            image_url as "imageUrl"
+          FROM troc_ads 
+          WHERE id = ${id}
+        `));
+        
+        let ad = null;
+        if (result.rows && result.rows.length > 0) {
+          ad = result.rows[0];
+        } else if (result[0]) {
+          ad = result[0];
+        }
+        
+        if (ad) {
+          console.log('📋 TROC-ID - db.execute réussi:', ad.title);
+          return res.status(200).json(ad);
+        }
+        
+      } catch (executeError) {
+        console.log('📋 TROC-ID - db.execute échoué:', executeError.message);
+      }
+      
+      // Si aucune méthode ne fonctionne
+      console.log('📋 TROC-ID - Toutes les tentatives échouées pour ID:', id);
+      return res.status(404).json({ message: "Ad not found" });
       
     } catch (error) {
       console.error('📋 TROC-ID - Erreur finale:', error);
