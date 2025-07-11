@@ -28,7 +28,7 @@ const TrocAdDetail = () => {
   const [, params] = useRoute("/troc/:id");
   const [, setLocation] = useLocation();
   const adId = params?.id;
-  const { isAuthenticated, isAdmin } = useAuth();
+  const { isAuthenticated, isAdmin, user: currentUser } = useAuth();
   const { toast } = useToast();
 
   // Fetch the specific ad
@@ -119,6 +119,10 @@ const TrocAdDetail = () => {
     );
   }
 
+  // Image par défaut comme pour les événements
+  const imageUrl = ad.imageUrl || 
+    `https://images.unsplash.com/photo-${['1542744173-05336fcc7ad4', '1607623580833-9df44be7f5fb', '1579952363873-27d3bfadbd9'][Math.floor(Math.random() * 3)]}?ixlib=rb-1.2.1&auto=format&fit=crop&w=500&q=80`;
+
   return (
     <div className="container mx-auto px-4 py-12">
       <Button asChild variant="outline" className="mb-6">
@@ -130,15 +134,12 @@ const TrocAdDetail = () => {
 
       <Card>
         <CardContent className="p-6">
-          {ad.imageUrl && (
-            <div className="mb-6">
-              <img
-                src={ad.imageUrl}
-                alt={ad.title}
-                className="w-full max-w-3xl mx-auto h-96 object-cover rounded-lg shadow-md"
-              />
-            </div>
-          )}
+          <div className="mb-6">
+            <div 
+              className="w-full h-64 md:h-96 rounded-lg bg-cover bg-center" 
+              style={{ backgroundImage: `url('${imageUrl}')` }}
+            ></div>
+          </div>
 
           <div className="flex flex-col sm:flex-row justify-between items-start mb-6">
             <div className="flex-1">
@@ -148,8 +149,8 @@ const TrocAdDetail = () => {
               </Badge>
             </div>
             
-            {/* Admin controls */}
-            {isAdmin && (
+            {/* Contrôles d'édition et suppression pour le propriétaire et les admins */}
+            {isAuthenticated && (currentUser?.id === ad.userId || isAdmin) && (
               <div className="flex gap-2 mt-4 sm:mt-0">
                 <Link href={`/troc/${ad.id}/edit`}>
                   <Button 
