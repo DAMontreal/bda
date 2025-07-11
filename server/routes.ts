@@ -1054,6 +1054,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   app.get("/api/troc/:id", async (req, res) => {
+    console.log('📋 TROC-ID - GET /api/troc/:id appelé pour ID:', req.params.id);
+    
     try {
       const id = parseInt(req.params.id);
       
@@ -1061,16 +1063,84 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "Invalid ad ID" });
       }
       
-      // Utiliser storage interface simple
-      const ad = await storage.getTrocAd(id);
-      
-      if (!ad) {
-        return res.status(404).json({ message: "Ad not found" });
+      // Stratégie triple fallback pour une seule annonce (même logique que la liste)
+      try {
+        console.log('📋 TROC-ID - Tentative storage interface');
+        const ad = await storage.getTrocAd(id);
+        
+        if (!ad) {
+          return res.status(404).json({ message: "Ad not found" });
+        }
+        
+        console.log('📋 TROC-ID - Storage réussi:', ad.title);
+        return res.status(200).json(ad);
+        
+      } catch (storageError) {
+        console.log('📋 TROC-ID - Storage échoué, tentative SQL direct');
+        
+        // Fallback avec SQL direct
+        try {
+          const result = await pool.query(`
+            SELECT 
+              id, 
+              title, 
+              description, 
+              category, 
+              user_id as "userId", 
+              created_at as "createdAt",
+              COALESCE(image_url, NULL) as "imageUrl"
+            FROM troc_ads 
+            WHERE id = $1
+          `, [id]);
+          
+          if (result.rows.length === 0) {
+            return res.status(404).json({ message: "Ad not found" });
+          }
+          
+          const ad = result.rows[0];
+          console.log('📋 TROC-ID - SQL direct réussi:', ad.title);
+          
+          res.setHeader('Content-Type', 'application/json');
+          return res.status(200).json(ad);
+          
+        } catch (sqlError) {
+          console.log('📋 TROC-ID - SQL direct échoué, tentative sans image_url');
+          
+          // Dernier essai sans image_url
+          try {
+            const result = await pool.query(`
+              SELECT 
+                id, 
+                title, 
+                description, 
+                category, 
+                user_id as "userId", 
+                created_at as "createdAt"
+              FROM troc_ads 
+              WHERE id = $1
+            `, [id]);
+            
+            if (result.rows.length === 0) {
+              return res.status(404).json({ message: "Ad not found" });
+            }
+            
+            let ad = result.rows[0];
+            ad.imageUrl = null; // Ajouter imageUrl null
+            
+            console.log('📋 TROC-ID - SQL sans image_url réussi:', ad.title);
+            
+            res.setHeader('Content-Type', 'application/json');
+            return res.status(200).json(ad);
+            
+          } catch (finalError) {
+            console.error('📋 TROC-ID - Toutes les tentatives échouées:', finalError.message);
+            return res.status(404).json({ message: "Ad not found" });
+          }
+        }
       }
       
-      res.status(200).json(ad);
     } catch (error) {
-      console.error('Erreur GET /api/troc/:id:', error);
+      console.error('📋 TROC-ID - Erreur finale:', error);
       res.status(500).json({ message: "Internal server error" });
     }
   });
