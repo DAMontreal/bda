@@ -1175,6 +1175,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   app.post("/api/troc", requireAuth, async (req, res) => {
+    console.log('📝 POST /api/troc - Création d\'une nouvelle annonce');
+    
     try {
       console.log('POST /api/troc - Début de la requête, body:', req.body);
       
@@ -1284,6 +1286,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   app.put("/api/troc/:id", requireAuth, async (req, res) => {
+    console.log('📝 PUT /api/troc/:id appelé pour ID:', req.params.id);
+    
     try {
       const id = parseInt(req.params.id);
       
@@ -1291,22 +1295,105 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "Invalid ad ID" });
       }
       
-      // Utiliser SQL brut pour récupérer l'annonce
-      const getQuery = `
-        SELECT id, title, description, category, user_id as "userId", created_at as "createdAt", image_url as "imageUrl"
-        FROM troc_ads
-        WHERE id = ${id}
-      `;
-      
-      const getResult = await db.execute(sql.raw(getQuery));
+      // Stratégie quadruple fallback pour récupérer l'annonce avant mise à jour
       let ad = null;
-      if (getResult.rows && getResult.rows.length > 0) {
-        ad = getResult.rows[0];
-      } else if (getResult[0]) {
-        ad = getResult[0];
+      
+      // Tentative 1: Storage interface
+      try {
+        console.log('📝 PUT - Tentative 1: storage interface');
+        ad = await storage.getTrocAd(id);
+        if (ad) {
+          console.log('📝 PUT - Storage réussi:', ad.title);
+        }
+      } catch (storageError) {
+        console.log('📝 PUT - Storage en erreur:', storageError.message);
+      }
+      
+      // Tentative 2: SQL avec image_url
+      if (!ad) {
+        try {
+          console.log('📝 PUT - Tentative 2: SQL avec image_url');
+          const result = await pool.query(`
+            SELECT 
+              id, 
+              title, 
+              description, 
+              category, 
+              user_id as "userId", 
+              created_at as "createdAt",
+              COALESCE(image_url, NULL) as "imageUrl"
+            FROM troc_ads 
+            WHERE id = $1
+          `, [id]);
+          
+          if (result.rows.length > 0) {
+            ad = result.rows[0];
+            console.log('📝 PUT - SQL avec image_url réussi:', ad.title);
+          }
+        } catch (sqlError) {
+          console.log('📝 PUT - SQL avec image_url échoué:', sqlError.message);
+        }
+      }
+      
+      // Tentative 3: SQL sans image_url
+      if (!ad) {
+        try {
+          console.log('📝 PUT - Tentative 3: SQL sans image_url');
+          const result = await pool.query(`
+            SELECT 
+              id, 
+              title, 
+              description, 
+              category, 
+              user_id as "userId", 
+              created_at as "createdAt"
+            FROM troc_ads 
+            WHERE id = $1
+          `, [id]);
+          
+          if (result.rows.length > 0) {
+            ad = result.rows[0];
+            ad.imageUrl = null;
+            console.log('📝 PUT - SQL sans image_url réussi:', ad.title);
+          }
+        } catch (finalSqlError) {
+          console.log('📝 PUT - SQL sans image_url échoué:', finalSqlError.message);
+        }
+      }
+      
+      // Tentative 4: db.execute bypass
+      if (!ad) {
+        try {
+          console.log('📝 PUT - Tentative 4: db.execute bypass');
+          const getResult = await db.execute(sql.raw(`
+            SELECT 
+              id, 
+              title, 
+              description, 
+              category, 
+              user_id as "userId", 
+              created_at as "createdAt",
+              image_url as "imageUrl"
+            FROM troc_ads 
+            WHERE id = ${id}
+          `));
+          
+          if (getResult.rows && getResult.rows.length > 0) {
+            ad = getResult.rows[0];
+          } else if (getResult[0]) {
+            ad = getResult[0];
+          }
+          
+          if (ad) {
+            console.log('📝 PUT - db.execute réussi:', ad.title);
+          }
+        } catch (executeError) {
+          console.log('📝 PUT - db.execute échoué:', executeError.message);
+        }
       }
       
       if (!ad) {
+        console.log('📝 PUT - Annonce non trouvée pour ID:', id);
         return res.status(404).json({ message: "Ad not found" });
       }
       
@@ -1425,6 +1512,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   app.delete("/api/troc/:id", requireAuth, async (req, res) => {
+    console.log('🗑️ DELETE /api/troc/:id appelé pour ID:', req.params.id);
+    
     try {
       const id = parseInt(req.params.id);
       
@@ -1432,22 +1521,105 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "Invalid ad ID" });
       }
       
-      // Utiliser SQL brut pour récupérer l'annonce
-      const getQuery = `
-        SELECT id, title, description, category, user_id as "userId", created_at as "createdAt", image_url as "imageUrl"
-        FROM troc_ads
-        WHERE id = ${id}
-      `;
-      
-      const getResult = await db.execute(sql.raw(getQuery));
+      // Stratégie quadruple fallback pour récupérer l'annonce avant suppression
       let ad = null;
-      if (getResult.rows && getResult.rows.length > 0) {
-        ad = getResult.rows[0];
-      } else if (getResult[0]) {
-        ad = getResult[0];
+      
+      // Tentative 1: Storage interface
+      try {
+        console.log('🗑️ DELETE - Tentative 1: storage interface');
+        ad = await storage.getTrocAd(id);
+        if (ad) {
+          console.log('🗑️ DELETE - Storage réussi:', ad.title);
+        }
+      } catch (storageError) {
+        console.log('🗑️ DELETE - Storage en erreur:', storageError.message);
+      }
+      
+      // Tentative 2: SQL avec image_url
+      if (!ad) {
+        try {
+          console.log('🗑️ DELETE - Tentative 2: SQL avec image_url');
+          const result = await pool.query(`
+            SELECT 
+              id, 
+              title, 
+              description, 
+              category, 
+              user_id as "userId", 
+              created_at as "createdAt",
+              COALESCE(image_url, NULL) as "imageUrl"
+            FROM troc_ads 
+            WHERE id = $1
+          `, [id]);
+          
+          if (result.rows.length > 0) {
+            ad = result.rows[0];
+            console.log('🗑️ DELETE - SQL avec image_url réussi:', ad.title);
+          }
+        } catch (sqlError) {
+          console.log('🗑️ DELETE - SQL avec image_url échoué:', sqlError.message);
+        }
+      }
+      
+      // Tentative 3: SQL sans image_url
+      if (!ad) {
+        try {
+          console.log('🗑️ DELETE - Tentative 3: SQL sans image_url');
+          const result = await pool.query(`
+            SELECT 
+              id, 
+              title, 
+              description, 
+              category, 
+              user_id as "userId", 
+              created_at as "createdAt"
+            FROM troc_ads 
+            WHERE id = $1
+          `, [id]);
+          
+          if (result.rows.length > 0) {
+            ad = result.rows[0];
+            ad.imageUrl = null;
+            console.log('🗑️ DELETE - SQL sans image_url réussi:', ad.title);
+          }
+        } catch (finalSqlError) {
+          console.log('🗑️ DELETE - SQL sans image_url échoué:', finalSqlError.message);
+        }
+      }
+      
+      // Tentative 4: db.execute bypass
+      if (!ad) {
+        try {
+          console.log('🗑️ DELETE - Tentative 4: db.execute bypass');
+          const getResult = await db.execute(sql.raw(`
+            SELECT 
+              id, 
+              title, 
+              description, 
+              category, 
+              user_id as "userId", 
+              created_at as "createdAt",
+              image_url as "imageUrl"
+            FROM troc_ads 
+            WHERE id = ${id}
+          `));
+          
+          if (getResult.rows && getResult.rows.length > 0) {
+            ad = getResult.rows[0];
+          } else if (getResult[0]) {
+            ad = getResult[0];
+          }
+          
+          if (ad) {
+            console.log('🗑️ DELETE - db.execute réussi:', ad.title);
+          }
+        } catch (executeError) {
+          console.log('🗑️ DELETE - db.execute échoué:', executeError.message);
+        }
       }
       
       if (!ad) {
+        console.log('🗑️ DELETE - Annonce non trouvée pour ID:', id);
         return res.status(404).json({ message: "Ad not found" });
       }
       
@@ -1456,13 +1628,56 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(403).json({ message: "Forbidden" });
       }
       
-      // Utiliser SQL brut pour la suppression
-      const deleteQuery = `DELETE FROM troc_ads WHERE id = ${id}`;
-      const deleteResult = await db.execute(sql.raw(deleteQuery));
+      // Stratégie de suppression multiple pour gérer tous les cas
+      let deleteSuccess = false;
       
-      console.log('🗑️ TROC - Delete result:', deleteResult);
-      res.status(204).send();
+      // Méthode 1: Storage interface
+      try {
+        console.log('🗑️ DELETE - Suppression via storage interface');
+        deleteSuccess = await storage.deleteTrocAd(id);
+        if (deleteSuccess) {
+          console.log('🗑️ DELETE - Storage suppression réussie');
+        }
+      } catch (storageDeleteError) {
+        console.log('🗑️ DELETE - Storage suppression échouée:', storageDeleteError.message);
+      }
+      
+      // Méthode 2: SQL direct si storage a échoué
+      if (!deleteSuccess) {
+        try {
+          console.log('🗑️ DELETE - Suppression via pool.query');
+          const deleteResult = await pool.query('DELETE FROM troc_ads WHERE id = $1', [id]);
+          deleteSuccess = deleteResult.rowCount > 0;
+          if (deleteSuccess) {
+            console.log('🗑️ DELETE - Pool.query suppression réussie');
+          }
+        } catch (poolDeleteError) {
+          console.log('🗑️ DELETE - Pool.query suppression échouée:', poolDeleteError.message);
+        }
+      }
+      
+      // Méthode 3: db.execute si tout le reste échoue
+      if (!deleteSuccess) {
+        try {
+          console.log('🗑️ DELETE - Suppression via db.execute');
+          const deleteResult = await db.execute(sql.raw(`DELETE FROM troc_ads WHERE id = ${id}`));
+          console.log('🗑️ DELETE - db.execute result:', deleteResult);
+          deleteSuccess = true; // Si aucune erreur, considérer comme réussi
+        } catch (executeDeleteError) {
+          console.log('🗑️ DELETE - db.execute suppression échouée:', executeDeleteError.message);
+        }
+      }
+      
+      if (deleteSuccess) {
+        console.log('🗑️ DELETE - Suppression confirmée pour ID:', id);
+        res.status(204).send();
+      } else {
+        console.log('🗑️ DELETE - Échec de suppression pour ID:', id);
+        res.status(500).json({ message: "Failed to delete ad" });
+      }
+      
     } catch (error) {
+      console.error('🗑️ DELETE - Erreur générale:', error);
       res.status(500).json({ message: "Internal server error" });
     }
   });
