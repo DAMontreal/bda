@@ -57,6 +57,18 @@ export default function EditTrocAdPage() {
     }
   }, [isAdmin, authLoading, setLocation, currentUser, ad]);
 
+  // Handle case where ad doesn't exist
+  useEffect(() => {
+    if (!isLoading && adId && !ad) {
+      toast({
+        title: "Annonce introuvable",
+        description: `L'annonce ID ${adId} n'existe pas. Redirection vers TROC'DAM.`,
+        variant: "destructive",
+      });
+      setLocation("/trocdam");
+    }
+  }, [isLoading, adId, ad, setLocation, toast]);
+
   const form = useForm<EditTrocAdForm>({
     resolver: zodResolver(editTrocAdSchema),
     defaultValues: {
@@ -141,13 +153,36 @@ export default function EditTrocAdPage() {
     updateAdMutation.mutate(data);
   };
 
-  if (authLoading) {
+  if (authLoading || isLoading) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-orange-500 mx-auto"></div>
-          <p className="mt-4 text-gray-600">Vérification des permissions...</p>
+          <p className="mt-4 text-gray-600">
+            {authLoading ? "Vérification des permissions..." : "Chargement de l'annonce..."}
+          </p>
         </div>
+      </div>
+    );
+  }
+
+  // Show error if ad not found
+  if (!isLoading && adId && !ad) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <Card className="w-full max-w-md mx-auto">
+          <CardHeader>
+            <CardTitle className="text-center text-red-600">Annonce introuvable</CardTitle>
+          </CardHeader>
+          <CardContent className="text-center space-y-4">
+            <p className="text-gray-600">
+              L'annonce ID {adId} n'existe pas ou a été supprimée.
+            </p>
+            <Button onClick={() => setLocation("/trocdam")} className="w-full">
+              Retour à TROC'DAM
+            </Button>
+          </CardContent>
+        </Card>
       </div>
     );
   }
