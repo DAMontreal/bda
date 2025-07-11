@@ -1479,34 +1479,107 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       }
       
-      console.log('Updating ad with data:', updateData);
+      console.log('📝 PUT - Updating ad with data:', updateData);
       
-      // Utiliser SQL brut pour la mise à jour avec support des images
-      const updateQuery = `
-        UPDATE troc_ads 
-        SET title = '${updateData.title.replace(/'/g, "''")}',
-            description = '${updateData.description.replace(/'/g, "''")}',
-            category = '${updateData.category}',
-            image_url = ${finalImageUrl ? `'${finalImageUrl}'` : 'NULL'}
-        WHERE id = ${id}
-        RETURNING id, title, description, category, user_id as "userId", created_at as "createdAt", image_url as "imageUrl"
-      `;
-      
-      const updateResult = await db.execute(sql.raw(updateQuery));
+      // Stratégie quadruple fallback pour la mise à jour
       let updatedAd = null;
-      if (updateResult.rows && updateResult.rows.length > 0) {
-        updatedAd = updateResult.rows[0];
-      } else if (updateResult[0]) {
-        updatedAd = updateResult[0];
+      
+      // Tentative 1: Storage interface
+      try {
+        console.log('📝 PUT - Tentative 1: storage.updateTrocAd');
+        updatedAd = await storage.updateTrocAd(id, updateData);
+        if (updatedAd) {
+          console.log('📝 PUT - Storage update réussi:', updatedAd.title);
+        }
+      } catch (storageUpdateError) {
+        console.log('📝 PUT - Storage update échoué:', storageUpdateError.message);
+      }
+      
+      // Tentative 2: SQL avec image_url
+      if (!updatedAd) {
+        try {
+          console.log('📝 PUT - Tentative 2: SQL avec image_url');
+          const updateResult = await pool.query(`
+            UPDATE troc_ads 
+            SET title = $1,
+                description = $2,
+                category = $3,
+                image_url = $4
+            WHERE id = $5
+            RETURNING id, title, description, category, user_id as "userId", created_at as "createdAt", 
+                     COALESCE(image_url, NULL) as "imageUrl"
+          `, [updateData.title, updateData.description, updateData.category, finalImageUrl, id]);
+          
+          if (updateResult.rows.length > 0) {
+            updatedAd = updateResult.rows[0];
+            console.log('📝 PUT - SQL avec image_url réussi:', updatedAd.title);
+          }
+        } catch (sqlUpdateError) {
+          console.log('📝 PUT - SQL avec image_url échoué:', sqlUpdateError.message);
+        }
+      }
+      
+      // Tentative 3: SQL sans image_url
+      if (!updatedAd) {
+        try {
+          console.log('📝 PUT - Tentative 3: SQL sans image_url');
+          const updateResult = await pool.query(`
+            UPDATE troc_ads 
+            SET title = $1,
+                description = $2,
+                category = $3
+            WHERE id = $4
+            RETURNING id, title, description, category, user_id as "userId", created_at as "createdAt"
+          `, [updateData.title, updateData.description, updateData.category, id]);
+          
+          if (updateResult.rows.length > 0) {
+            updatedAd = updateResult.rows[0];
+            updatedAd.imageUrl = finalImageUrl; // Ajouter manuellement
+            console.log('📝 PUT - SQL sans image_url réussi:', updatedAd.title);
+          }
+        } catch (finalSqlUpdateError) {
+          console.log('📝 PUT - SQL sans image_url échoué:', finalSqlUpdateError.message);
+        }
+      }
+      
+      // Tentative 4: db.execute bypass
+      if (!updatedAd) {
+        try {
+          console.log('📝 PUT - Tentative 4: db.execute bypass');
+          const updateQuery = `
+            UPDATE troc_ads 
+            SET title = '${updateData.title.replace(/'/g, "''")}',
+                description = '${updateData.description.replace(/'/g, "''")}',
+                category = '${updateData.category}',
+                image_url = ${finalImageUrl ? `'${finalImageUrl}'` : 'NULL'}
+            WHERE id = ${id}
+            RETURNING id, title, description, category, user_id as "userId", created_at as "createdAt", image_url as "imageUrl"
+          `;
+          
+          const updateResult = await db.execute(sql.raw(updateQuery));
+          if (updateResult.rows && updateResult.rows.length > 0) {
+            updatedAd = updateResult.rows[0];
+          } else if (updateResult[0]) {
+            updatedAd = updateResult[0];
+          }
+          
+          if (updatedAd) {
+            console.log('📝 PUT - db.execute réussi:', updatedAd.title);
+          }
+        } catch (executeUpdateError) {
+          console.log('📝 PUT - db.execute échoué:', executeUpdateError.message);
+        }
       }
       
       if (!updatedAd) {
+        console.log('📝 PUT - Toutes les tentatives de mise à jour échouées pour ID:', id);
         return res.status(404).json({ message: "Ad not found" });
       }
       
-      console.log('Ad updated successfully:', updatedAd);
+      console.log('📝 PUT - Ad updated successfully:', updatedAd.title);
       res.status(200).json(updatedAd);
     } catch (error) {
+      console.error('📝 PUT - Erreur générale:', error);
       res.status(500).json({ message: "Internal server error" });
     }
   });
