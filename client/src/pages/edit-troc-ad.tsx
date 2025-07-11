@@ -16,6 +16,8 @@ import { useAuth } from "@/hooks/use-auth";
 import { ArrowLeft, Save, Upload, X } from "lucide-react";
 import { trocCategories } from "@/lib/utils";
 import { useEffect, useState } from "react";
+import MultiImageUpload from "@/components/trocdam/multi-image-upload";
+import { ImageUrlHelpers } from "@shared/multi-image-schema";
 
 const editTrocAdSchema = insertTrocAdSchema.omit({ userId: true, imageUrl: true }).extend({
   id: z.number(),
@@ -30,7 +32,7 @@ export default function EditTrocAdPage() {
   const { isAdmin, isLoading: authLoading, user: currentUser } = useAuth();
   const { toast } = useToast();
   const [selectedImages, setSelectedImages] = useState<File[]>([]);
-  const [currentImage, setCurrentImage] = useState<string | null>(null);
+  const [currentImages, setCurrentImages] = useState<string[]>([]);
 
   // Fetch users for admin assignment
   const { data: users = [] } = useQuery<User[]>({
@@ -40,6 +42,12 @@ export default function EditTrocAdPage() {
 
   const adId = params?.id ? parseInt(params.id) : null;
 
+  // Fetch the ad data first
+  const { data: ad, isLoading } = useQuery<TrocAd>({
+    queryKey: [`/api/troc/${adId}`],
+    enabled: !!adId,
+  });
+
   // Redirect if not admin or not owner (but wait for auth to load)
   useEffect(() => {
     if (!authLoading && !currentUser) {
@@ -48,12 +56,6 @@ export default function EditTrocAdPage() {
       setLocation("/");
     }
   }, [isAdmin, authLoading, setLocation, currentUser, ad]);
-
-  // Fetch the ad data
-  const { data: ad, isLoading } = useQuery<TrocAd>({
-    queryKey: [`/api/troc/${adId}`],
-    enabled: !!adId,
-  });
 
   const form = useForm<EditTrocAdForm>({
     resolver: zodResolver(editTrocAdSchema),
@@ -74,35 +76,18 @@ export default function EditTrocAdPage() {
         category: ad.category,
         assignedUserId: ad.userId.toString(),
       });
-      setCurrentImage(ad.imageUrl || null);
+      // Convertir les URLs d'images en array
+      const imageUrls = ImageUrlHelpers.stringToArray(ad.imageUrl || '');
+      setCurrentImages(imageUrls);
     }
   }, [ad, form]);
 
-  const handleImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = Array.from(e.target.files || []);
-    const imageFiles = files.filter(file => file.type.startsWith('image/'));
-    
-    // Limit to 5 images total (considering current image and selected images)
-    const currentImageCount = currentImage ? 1 : 0;
-    const totalImages = currentImageCount + selectedImages.length + imageFiles.length;
-    if (totalImages > 5) {
-      toast({
-        title: "Limite d'images atteinte",
-        description: "Vous pouvez uploader maximum 5 images au total",
-        variant: "destructive",
-      });
-      return;
-    }
-    
-    setSelectedImages(prev => [...prev, ...imageFiles]);
+  const handleImagesChange = (images: File[]) => {
+    setSelectedImages(images);
   };
 
-  const removeImage = (index: number) => {
-    setSelectedImages(prev => prev.filter((_, i) => i !== index));
-  };
-
-  const removeCurrentImage = () => {
-    setCurrentImage(null);
+  const handleRemoveCurrentImage = (imageUrl: string) => {
+    setCurrentImages(prev => prev.filter(url => url !== imageUrl));
   };
 
   const updateAdMutation = useMutation({
@@ -120,10 +105,9 @@ export default function EditTrocAdPage() {
         formData.append(`images`, image);
       });
       
-      // Indicate if current image should be removed
-      if (currentImage === null && ad?.imageUrl) {
-        formData.append('removeCurrentImage', 'true');
-      }
+      // Envoyer les URLs d'images actuelles restantes
+      const remainingImageUrls = ImageUrlHelpers.arrayToString(currentImages);
+      formData.append('currentImageUrls', remainingImageUrls);
 
       const response = await fetch(`/api/troc/${data.id}`, {
         method: 'PUT',
@@ -287,82 +271,13 @@ export default function EditTrocAdPage() {
                   </div>
                 )}
 
-                {/* Image Upload Section */}
-                <div>
-                  <Label>Images</Label>
-                  
-                  {/* Current Image */}
-                  {currentImage && (
-                    <div className="mb-4">
-                      <p className="text-sm text-gray-600 mb-2">Image actuelle :</p>
-                      <div className="relative inline-block">
-                        <img 
-                          src={currentImage} 
-                          alt="Image actuelle" 
-                          className="w-32 h-32 object-cover rounded-lg border"
-                        />
-                        <Button
-                          type="button"
-                          variant="destructive"
-                          size="sm"
-                          className="absolute -top-2 -right-2 h-6 w-6 rounded-full p-0"
-                          onClick={removeCurrentImage}
-                        >
-                          <X className="h-3 w-3" />
-                        </Button>
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Selected Images Preview */}
-                  {selectedImages.length > 0 && (
-                    <div className="mb-4">
-                      <p className="text-sm text-gray-600 mb-2">Nouvelles images :</p>
-                      <div className="flex flex-wrap gap-2">
-                        {selectedImages.map((image, index) => (
-                          <div key={index} className="relative">
-                            <img
-                              src={URL.createObjectURL(image)}
-                              alt={`Aperçu ${index + 1}`}
-                              className="w-20 h-20 object-cover rounded-lg border"
-                            />
-                            <Button
-                              type="button"
-                              variant="destructive"
-                              size="sm"
-                              className="absolute -top-2 -right-2 h-6 w-6 rounded-full p-0"
-                              onClick={() => removeImage(index)}
-                            >
-                              <X className="h-3 w-3" />
-                            </Button>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Upload Button */}
-                  <div className="flex items-center gap-4">
-                    <Input
-                      type="file"
-                      accept="image/*"
-                      multiple
-                      onChange={handleImageSelect}
-                      className="hidden"
-                      id="image-upload"
-                    />
-                    <Label
-                      htmlFor="image-upload"
-                      className="flex items-center gap-2 bg-gray-100 hover:bg-gray-200 px-4 py-2 rounded-lg cursor-pointer transition-colors"
-                    >
-                      <Upload className="h-4 w-4" />
-                      Ajouter des images
-                    </Label>
-                    <span className="text-sm text-gray-500">
-                      Maximum 5 images (formats: JPG, PNG, GIF)
-                    </span>
-                  </div>
-                </div>
+                {/* Multi-Image Upload Section */}
+                <MultiImageUpload
+                  currentImages={currentImages}
+                  onImagesChange={handleImagesChange}
+                  onRemoveCurrentImage={handleRemoveCurrentImage}
+                  maxImages={5}
+                />
 
                 <div>
                   <Label htmlFor="description">Description *</Label>
