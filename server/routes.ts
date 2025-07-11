@@ -1293,12 +1293,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
         category: req.body.category,
       } as any;
 
-      // Handle image upload
-      let imageUrl = ad.imageUrl; // Keep existing image by default
+      // Handle multi-images
+      let finalImageUrls = [];
       
-      // Check if current image should be removed
-      if (req.body.removeCurrentImage === 'true') {
-        imageUrl = null;
+      // Récupérer les URLs d'images actuelles conservées
+      if (req.body.currentImageUrls && req.body.currentImageUrls.trim() !== '') {
+        finalImageUrls = req.body.currentImageUrls.split(',').map((url: string) => url.trim()).filter((url: string) => url.length > 0);
       }
       
       // Handle new image uploads
@@ -1307,38 +1307,41 @@ export async function registerRoutes(app: Express): Promise<Server> {
         try {
           const imageFiles = Array.isArray(req.files.images) ? req.files.images : [req.files.images];
           console.log('Number of image files:', imageFiles.length);
-          const imageFile = imageFiles[0]; // For now, take the first image (we can expand to multiple later)
           
-          if (imageFile && imageFile.data) {
-            console.log('Processing image file:', imageFile.name, 'Size:', imageFile.size);
-            let imageBuffer: Buffer;
-            
-            if (Buffer.isBuffer(imageFile.data)) {
-              imageBuffer = imageFile.data;
-            } else {
-              imageBuffer = Buffer.from(imageFile.data);
+          // Traiter toutes les nouvelles images
+          for (const imageFile of imageFiles) {
+            if (imageFile && imageFile.data) {
+              console.log('Processing image file:', imageFile.name, 'Size:', imageFile.size);
+              let imageBuffer: Buffer;
+              
+              if (Buffer.isBuffer(imageFile.data)) {
+                imageBuffer = imageFile.data;
+              } else {
+                imageBuffer = Buffer.from(imageFile.data);
+              }
+              
+              try {
+                imageBuffer = await resizeProfileImage(imageBuffer);
+                console.log('Image resized successfully');
+              } catch (resizeError) {
+                console.warn('Could not resize image, using original:', resizeError.message);
+              }
+              
+              const fileName = `troc-ads/${Date.now()}-${Math.random().toString(36).substring(7)}.jpg`;
+              console.log('Attempting to upload file:', fileName);
+              
+              const uploadedUrl = await uploadFile(
+                StorageBucket.MEDIA,
+                fileName,
+                imageBuffer,
+                imageFile.mimetype || 'image/jpeg'
+              );
+              
+              if (uploadedUrl) {
+                finalImageUrls.push(uploadedUrl);
+                console.log('Image uploaded successfully:', uploadedUrl);
+              }
             }
-            
-            try {
-              imageBuffer = await resizeProfileImage(imageBuffer);
-              console.log('Image resized successfully');
-            } catch (resizeError) {
-              console.warn('Could not resize image, using original:', resizeError.message);
-            }
-            
-            const fileName = `troc-ads/${Date.now()}-${Math.random().toString(36).substring(7)}.jpg`;
-            console.log('Attempting to upload file:', fileName);
-            
-            imageUrl = await uploadFile(
-              StorageBucket.MEDIA,
-              fileName,
-              imageBuffer,
-              imageFile.mimetype || 'image/jpeg'
-            );
-            
-            console.log('Image uploaded successfully:', imageUrl);
-          } else {
-            console.log('No image file data found');
           }
         } catch (uploadError) {
           console.error('Error uploading image:', uploadError);
@@ -1348,7 +1351,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         console.log('No files found in request, req.files:', req.files);
       }
       
-      updateData.imageUrl = imageUrl;
+      // Finaliser l'URL d'images
+      const finalImageUrl = finalImageUrls.length > 0 ? finalImageUrls.join(',') : null;
+      updateData.imageUrl = finalImageUrl;
 
       // Si l'utilisateur est admin et qu'un assignedUserId est fourni, gérer l'attribution
       if (req.session.isAdmin && req.body.assignedUserId && req.body.assignedUserId !== "none") {
@@ -1360,14 +1365,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       console.log('Updating ad with data:', updateData);
       
-      // Utiliser SQL brut pour la mise à jour
+      // Utiliser SQL brut pour la mise à jour avec support des images
       const updateQuery = `
         UPDATE troc_ads 
         SET title = '${updateData.title.replace(/'/g, "''")}',
             description = '${updateData.description.replace(/'/g, "''")}',
-            category = '${updateData.category}'
+            category = '${updateData.category}',
+            image_url = ${finalImageUrl ? `'${finalImageUrl}'` : 'NULL'}
         WHERE id = ${id}
-        RETURNING id, title, description, category, user_id as "userId", created_at as "createdAt"
+        RETURNING id, title, description, category, user_id as "userId", created_at as "createdAt", image_url as "imageUrl"
       `;
       
       const updateResult = await db.execute(sql.raw(updateQuery));
