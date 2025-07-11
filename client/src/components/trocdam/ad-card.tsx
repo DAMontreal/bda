@@ -11,6 +11,7 @@ import { useAuth } from "@/hooks/use-auth";
 import FormattedText from "@/components/ui/formatted-text";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+import ImageCarousel from "@/components/trocdam/image-carousel";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -66,19 +67,18 @@ const TrocAdCard = ({ ad }: TrocAdCardProps) => {
     return `${firstName.charAt(0)}${lastName.charAt(0)}`;
   };
 
-  // Image par défaut comme pour les événements si pas d'image TROC
-  const imageUrl = ad.imageUrl || 
-    `https://images.unsplash.com/photo-${['1542744173-05336fcc7ad4', '1607623580833-9df44be7f5fb', '1579952363873-27d3bfadbd9'][Math.floor(Math.random() * 3)]}?ixlib=rb-1.2.1&auto=format&fit=crop&w=500&q=80`;
+  // Support multi-images : diviser imageUrl par des virgules s'il y en a plusieurs
+  const imageUrls = ad.imageUrl ? ad.imageUrl.split(',').map(url => url.trim()).filter(url => url.length > 0) : [];
 
   return (
     <Card className="border border-gray-300 rounded-lg hover:border-[#FF5500] transition-colors overflow-hidden">
       <Link href={`/troc/${ad.id}`}>
         <div className="cursor-pointer">
-          <div 
-            className="h-48 bg-cover bg-center relative" 
-            style={{ backgroundImage: `url('${imageUrl}')` }}
-          >
-          </div>
+          <ImageCarousel 
+            images={imageUrls}
+            title={ad.title}
+            className="h-48"
+          />
           <div className="p-4">
             <div className="flex justify-between items-start mb-3">
               <h4 className="font-bold">{ad.title}</h4>
