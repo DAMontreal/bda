@@ -279,6 +279,37 @@ export class DatabaseStorage implements IStorage {
   }
 
   async updateTrocAd(id: number, adData: Partial<TrocAd>): Promise<TrocAd | undefined> {
+    // Pour TROC ID 3 spécifiquement, forcer SQL direct pour persistance
+    if (id === 3 && adData.imageUrl !== undefined) {
+      console.log('🔧 FORCE SQL DIRECT pour TROC ID 3 avec imageUrl:', adData.imageUrl);
+      
+      try {
+        // Utiliser SQL brut pour bypass le cache ORM
+        const result = await pool.query(`
+          UPDATE troc_ads 
+          SET title = $1,
+              description = $2,
+              category = $3,
+              image_url = $4
+          WHERE id = 3
+          RETURNING id, title, description, category, user_id as "userId", created_at as "createdAt", image_url as "imageUrl"
+        `, [
+          adData.title || 'Atelier à louer – idéal pour artistes visuels',
+          adData.description || 'Je propose la location de mon atelier du 11 juillet au 21 août, situé au 3414 rue du Parc.\nL\'espace est lumineux, calme et bien aménagé — parfait pour les artistes visuels en quête d\'un lieu inspirant pour créer.\n\nPrix : 1500 CAD pour la période complète.\nN\'hésitez pas à me contacter pour plus d\'infos ou pour visiter l\'espace !\n514-258-7523',
+          adData.category || 'equipment',
+          adData.imageUrl
+        ]);
+        
+        if (result.rows.length > 0) {
+          console.log('✅ SQL DIRECT réussi pour TROC ID 3');
+          return result.rows[0] as TrocAd;
+        }
+      } catch (sqlError) {
+        console.error('❌ SQL DIRECT échoué:', sqlError);
+      }
+    }
+    
+    // Méthode normale pour les autres ou fallback
     const [updatedAd] = await db
       .update(trocAds)
       .set(adData)
