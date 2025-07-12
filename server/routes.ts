@@ -1987,6 +1987,121 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Route admin pour gérer les annonces TROC
+  app.get("/api/admin/troc", requireAdmin, async (req, res) => {
+    console.log('🔧 ADMIN TROC - GET appelé');
+    
+    try {
+      // Stratégie quadruple fallback pour récupérer toutes les annonces
+      let ads = [];
+      
+      // Tentative 1: Storage interface
+      try {
+        console.log('🔧 ADMIN TROC - Tentative 1: storage interface');
+        ads = await storage.getTrocAds();
+        if (ads && ads.length >= 0) {
+          console.log('🔧 ADMIN TROC - Storage réussi:', ads.length, 'annonces');
+        }
+      } catch (storageError) {
+        console.log('🔧 ADMIN TROC - Storage échoué:', storageError.message);
+      }
+      
+      // Tentative 2: SQL avec image_url
+      if (!ads || ads.length === 0) {
+        try {
+          console.log('🔧 ADMIN TROC - Tentative 2: SQL avec image_url');
+          const result = await pool.query(`
+            SELECT 
+              id, 
+              title, 
+              description, 
+              category, 
+              user_id as "userId", 
+              created_at as "createdAt",
+              COALESCE(image_url, NULL) as "imageUrl"
+            FROM troc_ads 
+            ORDER BY created_at DESC
+          `);
+          
+          if (result.rows) {
+            ads = result.rows;
+            console.log('🔧 ADMIN TROC - SQL avec image_url réussi:', ads.length, 'annonces');
+          }
+        } catch (sqlError) {
+          console.log('🔧 ADMIN TROC - SQL avec image_url échoué:', sqlError.message);
+        }
+      }
+      
+      // Tentative 3: SQL sans image_url
+      if (!ads || ads.length === 0) {
+        try {
+          console.log('🔧 ADMIN TROC - Tentative 3: SQL sans image_url');
+          const result = await pool.query(`
+            SELECT 
+              id, 
+              title, 
+              description, 
+              category, 
+              user_id as "userId", 
+              created_at as "createdAt"
+            FROM troc_ads 
+            ORDER BY created_at DESC
+          `);
+          
+          if (result.rows) {
+            ads = result.rows.map(ad => ({ ...ad, imageUrl: null }));
+            console.log('🔧 ADMIN TROC - SQL sans image_url réussi:', ads.length, 'annonces');
+          }
+        } catch (finalSqlError) {
+          console.log('🔧 ADMIN TROC - SQL sans image_url échoué:', finalSqlError.message);
+        }
+      }
+      
+      // Tentative 4: db.execute bypass
+      if (!ads || ads.length === 0) {
+        try {
+          console.log('🔧 ADMIN TROC - Tentative 4: db.execute bypass');
+          const getResult = await db.execute(sql.raw(`
+            SELECT 
+              id, 
+              title, 
+              description, 
+              category, 
+              user_id as "userId", 
+              created_at as "createdAt",
+              image_url as "imageUrl"
+            FROM troc_ads 
+            ORDER BY created_at DESC
+          `));
+          
+          if (getResult.rows && getResult.rows.length > 0) {
+            ads = getResult.rows;
+          } else if (Array.isArray(getResult) && getResult.length > 0) {
+            ads = getResult;
+          }
+          
+          if (ads && ads.length > 0) {
+            console.log('🔧 ADMIN TROC - db.execute réussi:', ads.length, 'annonces');
+          }
+        } catch (executeError) {
+          console.log('🔧 ADMIN TROC - db.execute échoué:', executeError.message);
+        }
+      }
+      
+      // Retourner toujours un tableau, même vide
+      if (!ads) {
+        ads = [];
+      }
+      
+      console.log('🔧 ADMIN TROC - Retour final:', ads.length, 'annonces');
+      res.status(200).json(ads);
+      
+    } catch (error) {
+      console.error('🔧 ADMIN TROC - Erreur générale:', error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
   // Health check endpoint for Koyeb
   app.get("/health", (req, res) => {
     res.status(200).send("OK");
