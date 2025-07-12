@@ -12,6 +12,8 @@ import { useAuth } from "@/hooks/use-auth";
 import FormattedText from "@/components/ui/formatted-text";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+import ImageCarousel from "@/components/trocdam/image-carousel";
+import { getTrocAdImages } from "@/lib/atelier-images";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -119,9 +121,8 @@ const TrocAdDetail = () => {
     );
   }
 
-  // Image par défaut comme pour les événements
-  const imageUrl = ad.imageUrl || 
-    `https://images.unsplash.com/photo-${['1542744173-05336fcc7ad4', '1607623580833-9df44be7f5fb', '1579952363873-27d3bfadbd9'][Math.floor(Math.random() * 3)]}?ixlib=rb-1.2.1&auto=format&fit=crop&w=500&q=80`;
+  // Support multi-images avec contournement pour TROC ID 3
+  const imageUrls = getTrocAdImages(ad);
 
   return (
     <div className="container mx-auto px-4 py-12">
@@ -135,10 +136,11 @@ const TrocAdDetail = () => {
       <Card>
         <CardContent className="p-6">
           <div className="mb-6">
-            <div 
-              className="w-full h-64 md:h-96 rounded-lg bg-cover bg-center" 
-              style={{ backgroundImage: `url('${imageUrl}')` }}
-            ></div>
+            <ImageCarousel 
+              images={imageUrls}
+              title={ad.title}
+              className="w-full h-64 md:h-96"
+            />
           </div>
 
           <div className="flex flex-col sm:flex-row justify-between items-start mb-6">
