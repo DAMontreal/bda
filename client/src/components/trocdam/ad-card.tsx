@@ -12,6 +12,7 @@ import FormattedText from "@/components/ui/formatted-text";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import ImageCarousel from "@/components/trocdam/image-carousel";
+import { getTrocAdImages } from "@/lib/atelier-images";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -67,8 +68,8 @@ const TrocAdCard = ({ ad }: TrocAdCardProps) => {
     return `${firstName.charAt(0)}${lastName.charAt(0)}`;
   };
 
-  // Support multi-images : diviser imageUrl par des virgules s'il y en a plusieurs
-  const imageUrls = ad.imageUrl ? ad.imageUrl.split(',').map(url => url.trim()).filter(url => url.length > 0) : [];
+  // Support multi-images avec contournement pour TROC ID 3
+  const imageUrls = getTrocAdImages(ad);
 
   return (
     <Card className="border border-gray-300 rounded-lg hover:border-[#FF5500] transition-colors overflow-hidden">
