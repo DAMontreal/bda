@@ -40,10 +40,12 @@ const CreateAd = ({ onSuccess }: CreateAdProps) => {
   const { toast } = useToast();
   const { user, isAdmin } = useAuth();
 
-  // Fetch users for admin assignment
+  // Fetch users for admin assignment - only if admin and authenticated
   const { data: users = [] } = useQuery<User[]>({
     queryKey: ["/api/users"],
-    enabled: isAdmin
+    enabled: isAdmin && !!user,
+    retry: false, // Ne pas réessayer si échec d'authentification
+    staleTime: 5 * 60 * 1000, // Cache 5 minutes
   });
 
   // Initialize form
@@ -161,7 +163,21 @@ const CreateAd = ({ onSuccess }: CreateAdProps) => {
       console.log('Envoi des données:', payload);
       const response = await apiRequest("POST", "/api/troc", payload);
       
-      return await response.json();
+      // Vérifier que la réponse a du contenu avant de parser JSON
+      const text = await response.text();
+      console.log('Réponse brute:', text);
+      
+      if (!text || text.trim() === '') {
+        throw new Error('Réponse vide du serveur');
+      }
+      
+      try {
+        return JSON.parse(text);
+      } catch (error) {
+        console.error('Erreur parsing JSON:', error);
+        console.error('Contenu reçu:', text);
+        throw new Error(`Erreur de format de réponse: ${text.substring(0, 100)}`);
+      }
     },
     onSuccess: async () => {
       // Invalidate queries to refresh data
