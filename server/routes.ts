@@ -1468,8 +1468,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       // Finaliser l'URL d'images
-      const finalImageUrl = finalImageUrls.length > 0 ? finalImageUrls.join(',') : null;
-      updateData.imageUrl = finalImageUrl;
+      // Si imageUrl est fourni directement dans le body (JSON), l'utiliser
+      if (req.body.imageUrl !== undefined) {
+        console.log('📝 PUT - imageUrl fourni directement:', req.body.imageUrl);
+        updateData.imageUrl = req.body.imageUrl;
+      } else {
+        // Sinon utiliser les images uploadées
+        const finalImageUrl = finalImageUrls.length > 0 ? finalImageUrls.join(',') : null;
+        updateData.imageUrl = finalImageUrl;
+      }
 
       // Si l'utilisateur est admin et qu'un assignedUserId est fourni, gérer l'attribution
       if (req.session.isAdmin && req.body.assignedUserId && req.body.assignedUserId !== "none") {
@@ -1508,7 +1515,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             WHERE id = $5
             RETURNING id, title, description, category, user_id as "userId", created_at as "createdAt", 
                      COALESCE(image_url, NULL) as "imageUrl"
-          `, [updateData.title, updateData.description, updateData.category, finalImageUrl, id]);
+          `, [updateData.title, updateData.description, updateData.category, updateData.imageUrl, id]);
           
           if (updateResult.rows.length > 0) {
             updatedAd = updateResult.rows[0];
@@ -1534,7 +1541,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           
           if (updateResult.rows.length > 0) {
             updatedAd = updateResult.rows[0];
-            updatedAd.imageUrl = finalImageUrl; // Ajouter manuellement
+            updatedAd.imageUrl = updateData.imageUrl; // Ajouter manuellement
             console.log('📝 PUT - SQL sans image_url réussi:', updatedAd.title);
           }
         } catch (finalSqlUpdateError) {
@@ -1551,7 +1558,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             SET title = '${updateData.title.replace(/'/g, "''")}',
                 description = '${updateData.description.replace(/'/g, "''")}',
                 category = '${updateData.category}',
-                image_url = ${finalImageUrl ? `'${finalImageUrl}'` : 'NULL'}
+                image_url = ${updateData.imageUrl ? `'${updateData.imageUrl}'` : 'NULL'}
             WHERE id = ${id}
             RETURNING id, title, description, category, user_id as "userId", created_at as "createdAt", image_url as "imageUrl"
           `;
