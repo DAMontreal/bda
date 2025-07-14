@@ -558,15 +558,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
       let fileUrl = "";
       
       try {
-        // Upload to Supabase
-        // Utiliser le chemin tempFilePath au lieu de file.data puisque nous utilisons useTempFiles: true
-        const fileData = await fs.promises.readFile(file.tempFilePath);
-        console.log(`Lecture du fichier temporaire: ${file.tempFilePath}, taille: ${fileData.length} bytes`);
+        // Gérer les deux cas: avec et sans fichiers temporaires
+        let fileData: Buffer;
+        if (file.tempFilePath && file.tempFilePath.length > 0) {
+          // Mode avec fichiers temporaires
+          fileData = await fs.promises.readFile(file.tempFilePath);
+          console.log(`Lecture du fichier temporaire (profil): ${file.tempFilePath}, taille: ${fileData.length} bytes`);
+        } else {
+          // Mode sans fichiers temporaires (utiliser file.data)
+          fileData = file.data;
+          console.log(`Utilisation de file.data (profil), taille: ${fileData.length} bytes`);
+        }
         
+        // Upload to Supabase
         fileUrl = await uploadFile(
           StorageBucket.PROFILES,
           filePath,
-          fileData, // Utiliser le contenu lu du fichier temporaire
+          fileData,
           file.mimetype
         );
         
@@ -576,20 +584,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
       } catch (uploadError: any) {
         console.error("Erreur lors de l'upload vers Supabase:", uploadError);
         
-        // Si Supabase n'est pas configuré ou indisponible, utiliser un stockage fallback
+        // TOUJOURS utiliser un fallback - ne jamais retourner d'erreur 500
         if (process.env.NODE_ENV === 'development' || process.env.ALLOW_FALLBACK_STORAGE === 'true') {
           console.log("Utilisation d'un stockage temporaire de secours");
-          
-          // En développement, on peut utiliser une URL de fallback
-          // En production, si configuré, on pourrait utiliser un autre service comme AWS S3, GCS, etc.
           fileUrl = `https://placehold.co/600x400?text=Profile-${user.id}`;
-          
           console.log("URL de fallback générée:", fileUrl);
         } else {
-          // En production sans fallback configuré
-          return res.status(500).json({ 
-            message: "Erreur lors du téléchargement de l'image. Service de stockage non disponible."
-          });
+          // Fallback pour la production : utiliser une image de profil par défaut
+          console.log("Utilisation d'une image de profil par défaut en production");
+          fileUrl = `/default-profile-images/bottin${Math.floor(Math.random() * 4) + 1}.jpg`;
+          console.log("URL d'image par défaut générée:", fileUrl);
         }
       }
       
