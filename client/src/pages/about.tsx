@@ -113,21 +113,21 @@ const About = () => {
               <h2 className="text-xl font-bold mb-4" id="contact">Nous contacter</h2>
               <div className="space-y-4">
                 <div className="flex items-start">
-                  <MapPin className="h-5 w-5 text-[#FF5500] mt-1 mr-3 flex-shrink-0" />
+                  <MapPin className="h-5 w-5 text-[#F89720] mt-1 mr-3 flex-shrink-0" />
                   <span>3680 Rue Jeanne-Mance, Montréal, QC H2X 2K5</span>
                 </div>
                 <div className="flex items-center">
-                  <Phone className="h-5 w-5 text-[#FF5500] mr-3 flex-shrink-0" />
+                  <Phone className="h-5 w-5 text-[#F89720] mr-3 flex-shrink-0" />
                   <span>(514) 555-1234</span>
                 </div>
                 <div className="flex items-center">
-                  <Mail className="h-5 w-5 text-[#FF5500] mr-3 flex-shrink-0" />
+                  <Mail className="h-5 w-5 text-[#F89720] mr-3 flex-shrink-0" />
                   <span>info@diversiteartistique.org</span>
                 </div>
               </div>
               
               <div className="mt-6">
-                <Button className="w-full bg-[#FF5500]">
+                <Button className="w-full bg-[#F89720]">
                   Nous envoyer un message
                 </Button>
               </div>
@@ -143,7 +143,7 @@ const About = () => {
               
               {!isAuthenticated ? (
                 <div className="space-y-3">
-                  <Button className="w-full bg-[#FF5500]" asChild>
+                  <Button className="w-full bg-[#F89720]" asChild>
                     <Link href="/register">S'inscrire</Link>
                   </Button>
                   <Button variant="outline" className="w-full" asChild>
@@ -151,7 +151,7 @@ const About = () => {
                   </Button>
                 </div>
               ) : (
-                <Button className="w-full bg-[#FF5500]" asChild>
+                <Button className="w-full bg-[#F89720]" asChild>
                   <Link href="/dashboard">Mon profil</Link>
                 </Button>
               )}
@@ -161,7 +161,7 @@ const About = () => {
                   href="https://www.diversiteartistique.org" 
                   target="_blank" 
                   rel="noopener noreferrer"
-                  className="flex items-center text-[#FF5500] hover:underline"
+                  className="flex items-center text-[#F89720] hover:underline"
                 >
                   Visiter notre site web principal <ExternalLink className="ml-2 h-4 w-4" />
                 </a>
