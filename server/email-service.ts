@@ -133,6 +133,111 @@ export async function sendApprovalEmail(
 }
 
 /**
+ * Envoyer un email de confirmation d'inscription
+ */
+export async function sendRegistrationConfirmationEmail(
+  to: string, 
+  firstName: string, 
+  lastName: string
+): Promise<boolean> {
+  const subject = 'Inscription réussie - Bottin des artistes DAM';
+  
+  const html = `
+  <!DOCTYPE html>
+  <html>
+    <head>
+      <meta charset="utf-8">
+      <title>Inscription réussie - Bottin des artistes DAM</title>
+      <style>
+        body {
+          font-family: Arial, sans-serif;
+          line-height: 1.6;
+          color: #333;
+          margin: 0;
+          padding: 0;
+        }
+        .container {
+          max-width: 600px;
+          margin: 0 auto;
+          padding: 20px;
+        }
+        .header {
+          background-color: #F89720;
+          padding: 20px;
+          text-align: center;
+          color: white;
+        }
+        .content {
+          padding: 20px;
+          background-color: #f8f8f8;
+        }
+        .info-box {
+          background-color: #fff;
+          border: 2px solid #F89720;
+          padding: 15px;
+          margin: 20px 0;
+          text-align: center;
+          border-radius: 8px;
+        }
+        .footer {
+          text-align: center;
+          padding: 20px;
+          font-size: 12px;
+          color: #777;
+        }
+      </style>
+    </head>
+    <body>
+      <div class="container">
+        <div class="header">
+          <h1>Bottin des artistes DAM</h1>
+        </div>
+        <div class="content">
+          <h2>Bonjour ${firstName} ${lastName},</h2>
+          <p>Merci pour votre inscription au Bottin des artistes de Diversité Artistique Montréal !</p>
+          
+          <div class="info-box">
+            <h3>🕒 Votre compte est en cours de validation</h3>
+            <p>Un membre de notre équipe examine actuellement votre profil. Vous recevrez un email de confirmation dès que votre compte sera approuvé.</p>
+          </div>
+          
+          <p>Ce processus de validation nous permet de :</p>
+          <ul>
+            <li>Maintenir la qualité de notre communauté d'artistes</li>
+            <li>Vérifier l'authenticité des profils</li>
+            <li>Assurer un environnement sûr pour tous nos membres</li>
+          </ul>
+          
+          <p><strong>Prochaines étapes :</strong></p>
+          <ol>
+            <li>Nous examinons votre profil (généralement sous 48h)</li>
+            <li>Vous recevrez un email d'approbation</li>
+            <li>Vous pourrez alors vous connecter et profiter pleinement de la plateforme</li>
+          </ol>
+          
+          <p>En attendant, n'hésitez pas à explorer notre site web pour découvrir la communauté d'artistes de DAM.</p>
+          
+          <p>Si vous avez des questions, contactez-nous à info@diversiteartistique.org</p>
+          
+          <p>Cordialement,<br>L'équipe de Diversité Artistique Montréal</p>
+        </div>
+        <div class="footer">
+          <p>&copy; ${new Date().getFullYear()} Diversité Artistique Montréal. Tous droits réservés.</p>
+          <p>Ce message a été envoyé automatiquement, merci de ne pas y répondre.</p>
+        </div>
+      </div>
+    </body>
+  </html>
+  `;
+
+  return sendEmail({
+    to,
+    subject,
+    html
+  });
+}
+
+/**
  * Envoyer un email de réinitialisation de mot de passe
  */
 export async function sendPasswordResetEmail(

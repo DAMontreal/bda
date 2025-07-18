@@ -16,7 +16,7 @@ import {
 import { StorageBucket, uploadFile, deleteFile } from "./supabase";
 import fileUpload from "express-fileupload";
 import * as fs from 'fs';
-import { sendPasswordResetEmail } from "./email-service";
+import { sendPasswordResetEmail, sendRegistrationConfirmationEmail } from "./email-service";
 import { resizeProfileImage } from "./image-utils";
 import { uploadTrocImage } from "./api/upload/troc-image";
 import { sql } from "drizzle-orm";
@@ -163,6 +163,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
         ...userData,
         profileImage: profileImagePath
       });
+      
+      // Send registration confirmation email
+      try {
+        await sendRegistrationConfirmationEmail(user.email, user.firstName, user.lastName);
+        console.log(`Registration confirmation email sent to ${user.email}`);
+      } catch (emailError) {
+        console.error(`Failed to send registration confirmation email to ${user.email}:`, emailError);
+        // Continue with registration even if email fails
+      }
       
       // Don't return password
       const { password, ...userWithoutPassword } = user;
