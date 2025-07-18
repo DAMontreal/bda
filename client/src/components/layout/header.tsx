@@ -96,7 +96,7 @@ const Header = () => {
                 key={item.path}
                 href={item.path}
                 className={`text-lg font-medium hover:text-[#F89720] transition-colors ${
-                  location === item.path ? "text-[#FF5500]" : ""
+                  location === item.path ? "text-[#F89720]" : ""
                 }`}
               >
                 {item.label}
@@ -126,7 +126,7 @@ const Header = () => {
                   </Button>
                 </Link>
                 <Link href="/register">
-                  <Button className="text-lg bg-[#FF5500] hover:bg-opacity-90 text-white">
+                  <Button className="text-lg bg-[#F89720] hover:bg-opacity-90 text-white">
                     {labels.register}
                   </Button>
                 </Link>
@@ -177,7 +177,7 @@ const Header = () => {
                   key={item.path}
                   href={item.path}
                   className={`text-lg font-medium py-2 hover:text-[#F89720] transition-colors ${
-                    location === item.path ? "text-[#FF5500]" : ""
+                    location === item.path ? "text-[#F89720]" : ""
                   }`}
                 >
                   {item.label}
@@ -193,7 +193,7 @@ const Header = () => {
                     {labels.login}
                   </Link>
                   <Link href="/register">
-                    <Button className="w-full text-lg bg-[#FF5500] hover:bg-opacity-90 text-white">
+                    <Button className="w-full text-lg bg-[#F89720] hover:bg-opacity-90 text-white">
                       {labels.register}
                     </Button>
                   </Link>
