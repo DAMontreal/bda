@@ -61,7 +61,7 @@ const TrocDam = () => {
         {isAuthenticated && user?.isApproved ? (
           <Dialog open={createAdOpen} onOpenChange={setCreateAdOpen}>
             <DialogTrigger asChild>
-              <Button className="mt-4 md:mt-0 bg-[#FF5500]">
+              <Button className="mt-4 md:mt-0 bg-[#F89720]">
                 <Plus className="mr-2 h-4 w-4" /> Créer une annonce
               </Button>
             </DialogTrigger>
@@ -76,7 +76,7 @@ const TrocDam = () => {
             </DialogContent>
           </Dialog>
         ) : (
-          <Button className="mt-4 md:mt-0 bg-[#FF5500]" asChild>
+          <Button className="mt-4 md:mt-0 bg-[#F89720]" asChild>
             <a href="/register">
               <Plus className="mr-2 h-4 w-4" /> Publier une annonce
             </a>
@@ -92,7 +92,7 @@ const TrocDam = () => {
               variant={activeCategory === null ? "default" : "outline"}
               className={
                 activeCategory === null 
-                  ? "bg-[#FF5500] text-white" 
+                  ? "bg-[#F89720] text-white" 
                   : "bg-white text-black"
               }
               onClick={() => setActiveCategory(null)}
@@ -106,7 +106,7 @@ const TrocDam = () => {
                 variant={activeCategory === category.value ? "default" : "outline"}
                 className={
                   activeCategory === category.value 
-                    ? "bg-[#FF5500] text-white" 
+                    ? "bg-[#F89720] text-white" 
                     : "bg-white text-black"
                 }
                 onClick={() => setActiveCategory(category.value)}
@@ -129,7 +129,7 @@ const TrocDam = () => {
               <Button asChild variant="outline">
                 <a href="/login">Se connecter</a>
               </Button>
-              <Button asChild className="bg-[#FF5500]">
+              <Button asChild className="bg-[#F89720]">
                 <a href="/register">Créer un compte</a>
               </Button>
             </div>

@@ -86,7 +86,7 @@ const Events = () => {
     return (
       <div className="mt-4 flex items-center text-sm text-gray-500">
         <span>Organisé par: </span>
-        <Link href={`/artists/${organizer.id}`} className="ml-1 text-[#FF5500] hover:underline">
+        <Link href={`/artists/${organizer.id}`} className="ml-1 text-[#F89720] hover:underline">
           {organizer.firstName} {organizer.lastName}
         </Link>
       </div>
@@ -133,7 +133,7 @@ const Events = () => {
 
           {isAuthenticated && (
             <Link href="/dashboard?tab=events">
-              <Button className="bg-[#FF5500]">
+              <Button className="bg-[#F89720]">
                 <Calendar className="mr-2 h-4 w-4" /> Créer un événement
               </Button>
             </Link>
@@ -194,7 +194,7 @@ const Events = () => {
                       <Button 
                         variant="ghost" 
                         onClick={() => toggleEventDetails(event.id)}
-                        className="text-[#FF5500] p-0 h-auto hover:bg-transparent hover:text-opacity-80"
+                        className="text-[#F89720] p-0 h-auto hover:bg-transparent hover:text-opacity-80"
                       >
                         {showDetails === event.id ? (
                           <>Moins de détails <ChevronUp className="ml-1 h-4 w-4" /></>
@@ -206,7 +206,7 @@ const Events = () => {
                       {event.registrationUrl && event.registrationUrl.trim() ? (
                         <Button 
                           variant="default" 
-                          className="bg-[#FF5500]"
+                          className="bg-[#F89720]"
                           onClick={() => {
                             if (event.registrationUrl) {
                               window.location.href = event.registrationUrl;
@@ -217,7 +217,7 @@ const Events = () => {
                         </Button>
                       ) : (
                         <Link href={`/events/${event.id}`}>
-                          <Button variant="default" className="bg-[#FF5500]">
+                          <Button variant="default" className="bg-[#F89720]">
                             Voir l'événement
                           </Button>
                         </Link>

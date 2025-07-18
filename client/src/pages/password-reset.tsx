@@ -101,7 +101,7 @@ const PasswordReset = () => {
   return (
     <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
       <div className="w-full max-w-md">
-        <Link href="/login" className="inline-flex items-center text-gray-600 hover:text-[#FF5500] mb-6">
+        <Link href="/login" className="inline-flex items-center text-gray-600 hover:text-[#F89720] mb-6">
           <ArrowLeft className="mr-2 h-4 w-4" /> Retour à la connexion
         </Link>
 
@@ -132,7 +132,7 @@ const PasswordReset = () => {
                   
                   <Button 
                     type="submit" 
-                    className="w-full bg-[#FF5500] hover:bg-opacity-90"
+                    className="w-full bg-[#F89720] hover:bg-opacity-90"
                     disabled={requestForm.formState.isSubmitting}
                   >
                     {requestForm.formState.isSubmitting ? "Envoi..." : "Envoyer le lien"}
@@ -198,7 +198,7 @@ const PasswordReset = () => {
                   
                   <Button 
                     type="submit" 
-                    className="w-full bg-[#FF5500] hover:bg-opacity-90"
+                    className="w-full bg-[#F89720] hover:bg-opacity-90"
                     disabled={resetForm.formState.isSubmitting}
                   >
                     {resetForm.formState.isSubmitting ? "Réinitialisation..." : "Réinitialiser le mot de passe"}
@@ -227,7 +227,7 @@ const PasswordReset = () => {
             </CardHeader>
             <CardContent>
               <Link href="/login">
-                <Button className="w-full bg-[#FF5500] hover:bg-opacity-90">
+                <Button className="w-full bg-[#F89720] hover:bg-opacity-90">
                   Se connecter
                 </Button>
               </Link>
