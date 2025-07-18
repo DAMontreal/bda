@@ -50,8 +50,8 @@ const TrocDamPreview = () => {
                     variant={activeCategory === category.value ? "default" : "outline"}
                     className={
                       activeCategory === category.value
-                        ? "bg-[#FF5500] text-white"
-                        : "bg-white text-black border border-gray-300 hover:border-[#FF5500]"
+                        ? "bg-[#F89720] text-white"
+                        : "bg-white text-black border border-gray-300 hover:border-[#F89720]"
                     }
                     onClick={() => setActiveCategory(category.value)}
                   >
@@ -94,7 +94,7 @@ const TrocDamPreview = () => {
 
         <div className="text-center">
           <Link href="/trocdam">
-            <Button className="bg-[#FF5500] hover:bg-opacity-90 text-white font-bold py-3 px-8 rounded-full">
+            <Button className="bg-[#F89720] hover:bg-opacity-90 text-white font-bold py-3 px-8 rounded-full">
               Accéder à TROC'DAM
             </Button>
           </Link>
