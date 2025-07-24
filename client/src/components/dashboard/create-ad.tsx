@@ -143,40 +143,73 @@ const CreateAd = ({ onSuccess }: CreateAdProps) => {
     mutationFn: async (data: AdFormValues) => {
       if (!user) throw new Error("Vous devez être connecté pour créer une annonce");
       
+      // Validation côté client
+      if (!data.title?.trim()) {
+        throw new Error("Le titre est requis");
+      }
+      if (!data.description?.trim()) {
+        throw new Error("La description est requise");
+      }
+      if (!data.category?.trim()) {
+        throw new Error("La catégorie est requise");
+      }
+      
       // Préparer les données en nettoyant les champs vides
       const payload: any = {
-        title: data.title,
-        description: data.description,
-        category: data.category,
+        title: data.title.trim(),
+        description: data.description.trim(),
+        category: data.category.trim(),
       };
       
-      // Ajouter imageUrl seulement si fourni
+      // Ajouter imageUrl seulement si fourni et valide
       if (data.imageUrl && data.imageUrl.trim() !== '') {
-        payload.imageUrl = data.imageUrl;
+        payload.imageUrl = data.imageUrl.trim();
       }
       
-      // Ajouter assignedUserId seulement si fourni
-      if (data.assignedUserId && data.assignedUserId !== "none") {
-        payload.assignedUserId = parseInt(data.assignedUserId);
+      // Ajouter assignedUserId seulement si fourni et valide
+      if (data.assignedUserId && data.assignedUserId !== "none" && data.assignedUserId !== "") {
+        const userId = parseInt(data.assignedUserId);
+        if (!isNaN(userId) && userId > 0) {
+          payload.assignedUserId = userId;
+        }
       }
       
-      console.log('Envoi des données:', payload);
-      const response = await apiRequest("POST", "/api/troc", payload);
-      
-      // Vérifier que la réponse a du contenu avant de parser JSON
-      const text = await response.text();
-      console.log('Réponse brute:', text);
-      
-      if (!text || text.trim() === '') {
-        throw new Error('Réponse vide du serveur');
-      }
+      console.log('Envoi des données TROC:', payload);
       
       try {
-        return JSON.parse(text);
-      } catch (error) {
-        console.error('Erreur parsing JSON:', error);
-        console.error('Contenu reçu:', text);
-        throw new Error(`Erreur de format de réponse: ${text.substring(0, 100)}`);
+        console.log('🚀 Envoi de la requête TROC avec payload:', payload);
+        const response = await apiRequest("POST", "/api/troc", payload);
+        
+        // Si apiRequest n'a pas lancé d'erreur, la réponse est OK
+        console.log('✅ Réponse reçue, status:', response.status);
+        
+        // Parser la réponse JSON
+        const result = await response.json();
+        console.log('✅ Annonce créée avec succès:', result);
+        return result;
+        
+      } catch (apiError: any) {
+        console.error('❌ Erreur API complète:', apiError);
+        
+        // L'erreur vient de apiRequest, donc elle contient déjà le status et le message
+        const errorMessage = apiError.message || 'Erreur inconnue';
+        console.log('📝 Message d\'erreur extrait:', errorMessage);
+        
+        // Gestion spécifique des erreurs courantes basée sur le message
+        if (errorMessage.includes('500')) {
+          throw new Error("Erreur serveur temporaire. Veuillez réessayer dans quelques instants.");
+        } else if (errorMessage.includes('403') || errorMessage.includes('Accès refusé')) {
+          throw new Error("Votre compte doit être approuvé pour créer des annonces.");
+        } else if (errorMessage.includes('401') || errorMessage.includes('Non authentifié')) {
+          throw new Error("Votre session a expiré. Veuillez vous reconnecter.");
+        } else if (errorMessage.includes('400')) {
+          throw new Error("Données invalides. Vérifiez que tous les champs requis sont remplis.");
+        } else if (errorMessage.includes('network') || errorMessage.includes('fetch')) {
+          throw new Error("Erreur de connexion. Vérifiez votre connexion internet.");
+        }
+        
+        // Retourner l'erreur originale si aucun cas spécifique
+        throw new Error(errorMessage);
       }
     },
     onSuccess: async () => {
@@ -205,13 +238,35 @@ const CreateAd = ({ onSuccess }: CreateAdProps) => {
       if (onSuccess) onSuccess();
     },
     onError: (error: any) => {
-      console.error('Erreur complète:', error);
-      toast({
-        variant: "destructive",
-        title: "Erreur",
-        description: error.message || "Une erreur est survenue lors de la création de l'annonce",
-      });
+      console.error('❌ Erreur création annonce TROC:', error);
       
+      let errorTitle = "Erreur lors de la création";
+      let errorDescription = error.message || "Une erreur inattendue s'est produite";
+      
+      // Messages d'erreur personnalisés et utiles pour l'utilisateur
+      if (error.message?.includes('approved')) {
+        errorTitle = "Compte en attente d'approbation";
+        errorDescription = "Votre profil d'artiste doit être approuvé par un administrateur avant de pouvoir créer des annonces. Vous recevrez un email dès que votre compte sera validé.";
+      } else if (error.message?.includes('401') || error.message?.includes('session')) {
+        errorTitle = "Session expirée";
+        errorDescription = "Votre session a expiré. Veuillez vous reconnecter pour continuer.";
+      } else if (error.message?.includes('500')) {
+        errorTitle = "Erreur temporaire";
+        errorDescription = "Le serveur rencontre une difficulté temporaire. Veuillez réessayer dans quelques instants ou contacter le support si le problème persiste.";
+      } else if (error.message?.includes('network') || error.message?.includes('fetch')) {
+        errorTitle = "Problème de connexion";
+        errorDescription = "Vérifiez votre connexion internet et réessayez.";
+      } else if (error.message?.includes('requis')) {
+        errorTitle = "Informations manquantes";
+        errorDescription = error.message;
+      }
+      
+      toast({
+        title: errorTitle,
+        description: errorDescription,
+        variant: "destructive",
+        duration: 6000, // Afficher plus longtemps pour que l'utilisateur puisse lire
+      });
       setIsSubmitting(false);
     },
   });
@@ -407,7 +462,7 @@ const CreateAd = ({ onSuccess }: CreateAdProps) => {
         />
         
         <div className="flex justify-end pt-4">
-          <Button type="submit" className="bg-[#FF5500]" disabled={isSubmitting}>
+          <Button type="submit" className="bg-[#F89720]" disabled={isSubmitting}>
             {isSubmitting ? "Publication en cours..." : "Publier l'annonce"}
           </Button>
         </div>
