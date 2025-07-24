@@ -2,19 +2,48 @@ import { QueryClient, QueryFunction } from "@tanstack/react-query";
 
 async function throwIfResNotOk(res: Response) {
   if (!res.ok) {
-    // Pour les réponses 401 non authentifiées, ne pas lancer d'erreur
-    if (res.status === 401) {
-      console.log('Requête non authentifiée (401), pas d\'erreur lancée');
-      return;
-    }
+    console.log(`❌ API Error - Status: ${res.status} ${res.statusText}`);
+    
+    let errorMessage = res.statusText || 'Erreur inconnue';
     
     try {
-      const data = await res.json();
-      throw new Error(data.message || `${res.status}: ${res.statusText}`);
-    } catch (e) {
-      const text = await res.text().catch(() => res.statusText);
-      throw new Error(`${res.status}: ${text}`);
+      // Cloner la réponse pour éviter les problèmes de lecture multiple
+      const clonedRes = res.clone();
+      const text = await clonedRes.text();
+      
+      if (text && text.trim() !== '') {
+        // Essayer de parser comme JSON d'abord
+        try {
+          const errorData = JSON.parse(text);
+          errorMessage = errorData.message || errorData.error || text;
+        } catch (jsonError) {
+          // Si ce n'est pas du JSON, utiliser le texte brut
+          errorMessage = text.length > 200 ? text.substring(0, 200) + '...' : text;
+        }
+      }
+    } catch (readError) {
+      console.warn('Impossible de lire le contenu de l\'erreur:', readError);
+      // Utiliser un message par défaut selon le status
+      switch (res.status) {
+        case 401:
+          errorMessage = 'Non authentifié';
+          break;
+        case 403:
+          errorMessage = 'Accès refusé';
+          break;
+        case 404:
+          errorMessage = 'Ressource introuvable';
+          break;
+        case 500:
+          errorMessage = 'Erreur serveur interne';
+          break;
+        default:
+          errorMessage = `Erreur ${res.status}`;
+      }
     }
+    
+    console.log(`❌ Erreur finale: ${res.status}: ${errorMessage}`);
+    throw new Error(`${res.status}: ${errorMessage}`);
   }
 }
 
@@ -55,7 +84,7 @@ export const getQueryFn: <T>(options: {
 export const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
-      queryFn: getQueryFn({ on401: "returnNull" }),
+      queryFn: getQueryFn({ on401: "throw" }),
       refetchInterval: false,
       refetchOnWindowFocus: false,
       staleTime: Infinity,
