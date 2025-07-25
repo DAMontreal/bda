@@ -174,8 +174,8 @@ export class MemStorage implements IStorage {
   async getEvents(limit?: number): Promise<Event[]> {
     let events = Array.from(this.events.values());
     
-    // Sort by event date (newest first)
-    events = events.sort((a, b) => a.eventDate.getTime() - b.eventDate.getTime());
+    // Sort by event date (newest first) - changed to descending order
+    events = events.sort((a, b) => b.eventDate.getTime() - a.eventDate.getTime());
     
     if (limit) {
       events = events.slice(0, limit);

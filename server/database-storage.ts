@@ -84,7 +84,7 @@ export class DatabaseStorage implements IStorage {
     const query = db
       .select()
       .from(events)
-      .orderBy(asc(events.eventDate));
+      .orderBy(desc(events.eventDate));
     
     if (limit) {
       return query.limit(limit);
