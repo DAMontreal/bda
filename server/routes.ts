@@ -1235,18 +1235,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Utiliser SQL brut via Drizzle pour éviter le cache du schéma
       console.log('🔧 TROC - Utilisation de SQL brut via db.execute()');
       
-      // Construire la requête avec ou sans image_url
+      // FORCER la détection de la colonne en production
+      // La colonne existe, on force hasImageUrlColumn = true
+      let hasImageUrlColumn = true;
+      console.log('🔧 TROC - FORCE: Colonne image_url forcée à true (existe en production)');
+
+      // Construire la requête adaptée à la structure de la base
       let insertColumns = 'title, description, category, user_id, created_at';
       let insertValues = `'${validatedData.title.replace(/'/g, "''")}', '${validatedData.description.replace(/'/g, "''")}', '${validatedData.category}', ${validatedData.userId}, NOW()`;
       let returningColumns = 'id, title, description, category, user_id as "userId", created_at as "createdAt"';
       
+      // Toujours inclure image_url car la colonne existe en production
       if (validatedData.imageUrl) {
         insertColumns += ', image_url';
         insertValues += `, '${validatedData.imageUrl}'`;
-        returningColumns += ', image_url as "imageUrl"';
-      } else {
-        returningColumns += ', image_url as "imageUrl"';
       }
+      returningColumns += ', image_url as "imageUrl"';
       
       const query = `
         INSERT INTO troc_ads (${insertColumns})
@@ -1254,9 +1258,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
         RETURNING ${returningColumns}
       `;
       
-      console.log('📝 TROC - SQL Direct (sans paramètres):', query);
+      console.log('📝 TROC - SQL adapté à la structure BDD:', query);
       
-      const result = await db.execute(sql.raw(query));
+      let result;
+      try {
+        result = await db.execute(sql.raw(query));
+      } catch (sqlError: any) {
+        console.error('❌ TROC - Erreur SQL:', sqlError.message);
+        
+        // Si l'erreur concerne image_url malgré notre bypass, réessayer sans
+        if (sqlError.message.includes('image_url')) {
+          console.log('🔄 TROC - Réessai sans image_url malgré bypass...');
+          const fallbackQuery = `
+            INSERT INTO troc_ads (title, description, category, user_id, created_at)
+            VALUES ('${validatedData.title.replace(/'/g, "''")}', '${validatedData.description.replace(/'/g, "''")}', '${validatedData.category}', ${validatedData.userId}, NOW())
+            RETURNING id, title, description, category, user_id as "userId", created_at as "createdAt"
+          `;
+          result = await db.execute(sql.raw(fallbackQuery));
+        } else {
+          throw sqlError;
+        }
+      }
       console.log('🔍 TROC - SQL result complete:', result);
       console.log('🔍 TROC - result.rows:', result.rows);
       console.log('🔍 TROC - result[0]:', result[0]);
@@ -1269,8 +1291,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
         ad = result[0];
       } else {
         // Fallback : récupérer l'annonce par une nouvelle requête
+        const fallbackColumns = hasImageUrlColumn 
+          ? 'id, title, description, category, user_id as "userId", created_at as "createdAt", image_url as "imageUrl"'
+          : 'id, title, description, category, user_id as "userId", created_at as "createdAt"';
+          
         const fallbackQuery = `
-          SELECT id, title, description, category, user_id as "userId", created_at as "createdAt", image_url as "imageUrl"
+          SELECT ${fallbackColumns}
           FROM troc_ads
           WHERE user_id = ${validatedData.userId}
           ORDER BY created_at DESC
@@ -1278,6 +1304,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
         `;
         const fallbackResult = await db.execute(sql.raw(fallbackQuery));
         ad = fallbackResult.rows?.[0] || fallbackResult[0];
+      }
+      
+      // Assurer que imageUrl est présent même si la colonne n'existe pas
+      if (ad && !hasImageUrlColumn && validatedData.imageUrl) {
+        ad.imageUrl = validatedData.imageUrl;
       }
       
       console.log('🎉 TROC - Final ad data:', ad);
@@ -2119,6 +2150,54 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error('🔧 ADMIN TROC - Erreur générale:', error);
       res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  // Route d'administration pour ajouter la colonne image_url manquante
+  app.post("/api/admin/fix-database-schema", requireAuth, requireAdmin, async (req, res) => {
+    console.log('🔧 ADMIN - Correction schéma base de données demandée');
+    
+    try {
+      // Vérifier si la colonne existe déjà
+      const columnCheck = await db.execute(sql.raw(`
+        SELECT column_name 
+        FROM information_schema.columns 
+        WHERE table_name = 'troc_ads' AND column_name = 'image_url'
+      `));
+      
+      const hasColumn = columnCheck.rows && columnCheck.rows.length > 0;
+      console.log('🔍 ADMIN - Colonne image_url existe:', hasColumn);
+      
+      if (hasColumn) {
+        return res.json({ 
+          success: true, 
+          message: "La colonne image_url existe déjà",
+          action: "none"
+        });
+      }
+      
+      // Ajouter la colonne
+      console.log('🔧 ADMIN - Ajout de la colonne image_url...');
+      await db.execute(sql.raw(`
+        ALTER TABLE troc_ads 
+        ADD COLUMN image_url TEXT
+      `));
+      
+      console.log('✅ ADMIN - Colonne image_url ajoutée avec succès');
+      
+      res.json({ 
+        success: true, 
+        message: "Colonne image_url ajoutée avec succès",
+        action: "column_added"
+      });
+      
+    } catch (error: any) {
+      console.error('❌ ADMIN - Erreur correction schéma:', error.message);
+      res.status(500).json({ 
+        success: false, 
+        message: "Erreur lors de la correction du schéma",
+        error: error.message 
+      });
     }
   });
 
