@@ -12,9 +12,9 @@ const UpcomingEvents = () => {
   return (
     <section id="events" className="py-16 bg-gray-100">
       <div className="container mx-auto px-4">
-        <div className="flex justify-between items-end mb-10">
+        <div className="flex justify-between items-end mb-8">
           <div>
-            <h2 className="text-3xl font-bold mb-2">Événements à venir</h2>
+            <h2 className="text-3xl font-bold mb-1">Événements à venir</h2>
             <p className="text-gray-600">
               Participez à des événements artistiques vibrants à travers le Québec
             </p>
