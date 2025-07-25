@@ -95,9 +95,9 @@ const Events = () => {
 
   return (
     <div className="container mx-auto px-4 py-12">
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8">
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6">
         <div>
-          <h1 className="text-3xl font-bold mb-2">Événements</h1>
+          <h1 className="text-3xl font-bold mb-1">Événements</h1>
           <p className="text-gray-600">
             Découvrez les événements artistiques à venir
           </p>
