@@ -16,8 +16,7 @@ const Footer = () => {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8 mb-12">
           <div>
             <div className="flex items-center mb-4">
-              <div className="bg-[#F89720] text-white font-bold text-2xl p-2 rounded">DAM</div>
-              <span className="ml-2 text-white font-bold text-lg">Bottin des artistes</span>
+              <img src="/dam-bottin-logo.png" alt="Diversité Artistique Montréal - Bottin des Artistes" className="h-10 w-auto object-contain brightness-0 invert" />
             </div>
             <p className="text-gray-300 mb-4">
               Une initiative de Diversité Artistique Montréal pour promouvoir la diversité culturelle dans les arts.
