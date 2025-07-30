@@ -86,7 +86,7 @@ const Header = () => {
         <div className="flex justify-between items-center py-3">
           <div className="flex items-center ml-6">
             <a href="https://www.diversiteartistique.org" target="_blank" rel="noopener noreferrer" className="flex items-center">
-              <img src="/dam-bottin-logo.png" alt="Diversité Artistique Montréal - Bottin des Artistes" className="h-12 w-auto object-contain" />
+              <img src={`${import.meta.env.VITE_SUPABASE_URL}/storage/v1/object/public/image/dam-bottin-logo.png`} alt="Diversité Artistique Montréal - Bottin des Artistes" className="h-12 w-auto object-contain" />
             </a>
           </div>
 
