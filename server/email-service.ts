@@ -4,7 +4,10 @@ import { Resend } from 'resend';
 const resendApiKey = process.env.RESEND_API_KEY || 're_AKxXik7H_F5BawhHujicLj8g259URPhqe';
 const resend = new Resend(resendApiKey);
 
-const FROM_EMAIL = 'no-reply@bottin.diversiteartistique.org';
+// Utiliser le domaine par défaut de Resend en attendant la vérification du domaine personnalisé
+const FROM_EMAIL = process.env.NODE_ENV === 'production' 
+  ? 'no-reply@bottin.diversiteartistique.org'  // Domaine personnalisé en production
+  : 'onboarding@resend.dev';  // Domaine par défaut pour développement/tests
 
 export interface EmailOptions {
   to: string;
