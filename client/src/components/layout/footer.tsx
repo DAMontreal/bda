@@ -16,7 +16,7 @@ const Footer = () => {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8 mb-12">
           <div>
             <div className="flex items-center mb-4">
-              <img src={`${import.meta.env.VITE_SUPABASE_URL}/storage/v1/object/public/image/dam-bottin-logo.png`} alt="Diversité Artistique Montréal - Bottin des Artistes" className="h-10 w-auto object-contain brightness-0 invert" />
+              <img src="https://yorkiuccnxoyyzrliung.supabase.co/storage/v1/object/public/image/dam-bottin-logo.png" alt="Diversité Artistique Montréal - Bottin des Artistes" className="h-10 w-auto object-contain brightness-0 invert" />
             </div>
             <p className="text-gray-300 mb-4">
               Une initiative de Diversité Artistique Montréal pour promouvoir la diversité culturelle dans les arts.
