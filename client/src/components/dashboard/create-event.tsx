@@ -34,6 +34,7 @@ const eventSchema = z.object({
     required_error: "La date est requise",
   }),
   imageUrl: z.string().url("Veuillez entrer une URL valide").optional().or(z.literal("")),
+  detailImageUrl: z.string().url("Veuillez entrer une URL valide").optional().or(z.literal("")),
   registrationUrl: z.string().url("Veuillez entrer une URL valide pour l'inscription").optional().or(z.literal("")),
 });
 
@@ -42,10 +43,16 @@ type EventFormValues = z.infer<typeof eventSchema>;
 const CreateEvent = ({ eventId }: CreateEventProps) => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [uploadMethod, setUploadMethod] = useState<"url" | "file">("url");
-  const [selectedImage, setSelectedImage] = useState<File | null>(null);
-  const [imagePreviewUrl, setImagePreviewUrl] = useState<string>("");
-  const [isUploading, setIsUploading] = useState(false);
-  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [selectedListImage, setSelectedListImage] = useState<File | null>(null);
+  const [selectedDetailImage, setSelectedDetailImage] = useState<File | null>(null);
+  const [listImagePreviewUrl, setListImagePreviewUrl] = useState<string>("");
+  const [detailImagePreviewUrl, setDetailImagePreviewUrl] = useState<string>("");
+  const [isUploadingList, setIsUploadingList] = useState(false);
+  const [isUploadingDetail, setIsUploadingDetail] = useState(false);
+  const [uploadMethodList, setUploadMethodList] = useState<"url" | "file">("url");
+  const [uploadMethodDetail, setUploadMethodDetail] = useState<"url" | "file">("url");
+  const fileInputRefList = useRef<HTMLInputElement>(null);
+  const fileInputRefDetail = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
   const { user } = useAuth();
   const isEditMode = !!eventId;
@@ -65,6 +72,7 @@ const CreateEvent = ({ eventId }: CreateEventProps) => {
       location: "",
       eventDate: new Date(),
       imageUrl: "",
+      detailImageUrl: "",
       registrationUrl: "",
     },
   });
@@ -78,11 +86,15 @@ const CreateEvent = ({ eventId }: CreateEventProps) => {
         location: event.location,
         eventDate: new Date(event.eventDate),
         imageUrl: event.imageUrl || "",
+        detailImageUrl: event.detailImageUrl || "",
         registrationUrl: event.registrationUrl || "",
       });
-      // Initialiser l'URL de l'image pour la prévisualisation
+      // Initialiser les URLs d'images pour la prévisualisation
       if (event.imageUrl) {
-        setImagePreviewUrl(event.imageUrl);
+        setListImagePreviewUrl(event.imageUrl);
+      }
+      if (event.detailImageUrl) {
+        setDetailImagePreviewUrl(event.detailImageUrl);
       }
     }
   }, [event, isEditMode, form]);
@@ -105,18 +117,18 @@ const CreateEvent = ({ eventId }: CreateEventProps) => {
     },
     onSuccess: async (data) => {
       form.setValue('imageUrl', data.url);
-      setImagePreviewUrl(data.url);
+      setListImagePreviewUrl(data.url);
       
       toast({
         title: "Image téléchargée",
         description: "L'image a été téléchargée avec succès"
       });
       
-      setSelectedImage(null);
-      if (fileInputRef.current) {
-        fileInputRef.current.value = '';
+      setSelectedListImage(null);
+      if (fileInputRefList.current) {
+        fileInputRefList.current.value = '';
       }
-      setIsUploading(false);
+      setIsUploadingList(false);
     },
     onError: (error: any) => {
       toast({
@@ -124,7 +136,7 @@ const CreateEvent = ({ eventId }: CreateEventProps) => {
         title: "Erreur",
         description: error.message || "Une erreur est survenue lors du téléchargement de l'image"
       });
-      setIsUploading(false);
+      setIsUploadingList(false);
     }
   });
 
@@ -159,14 +171,20 @@ const CreateEvent = ({ eventId }: CreateEventProps) => {
         location: "",
         eventDate: new Date(),
         imageUrl: "",
+        detailImageUrl: "",
         registrationUrl: "",
       });
       
       // Reset image state
-      setImagePreviewUrl("");
-      setSelectedImage(null);
-      if (fileInputRef.current) {
-        fileInputRef.current.value = '';
+      setListImagePreviewUrl("");
+      setDetailImagePreviewUrl("");
+      setSelectedListImage(null);
+      setSelectedDetailImage(null);
+      if (fileInputRefList.current) {
+        fileInputRefList.current.value = '';
+      }
+      if (fileInputRefDetail.current) {
+        fileInputRefDetail.current.value = '';
       }
       
       setIsSubmitting(false);
@@ -354,15 +372,24 @@ const CreateEvent = ({ eventId }: CreateEventProps) => {
           )}
         />
         
+        {/* Image pour la liste des événements */}
         <div className="space-y-4">
-          <h3 className="text-lg font-semibold">Image de l'événement</h3>
+          <div className="flex items-center gap-2">
+            <h3 className="text-lg font-semibold">Image de liste</h3>
+            <span className="text-sm text-gray-500">(Pour les cartes d'événements)</span>
+          </div>
+          <div className="bg-blue-50 p-3 rounded-md">
+            <p className="text-sm text-blue-700">
+              <strong>Format recommandé :</strong> 400x300 pixels (4:3) - Cette image apparaîtra dans la liste des événements
+            </p>
+          </div>
           <div className="flex flex-col md:flex-row gap-6">
             <div className="w-full md:w-1/3">
               <div className="rounded-md border border-gray-200 p-4">
                 <div className="mb-4 text-center">
-                  {imagePreviewUrl ? (
+                  {listImagePreviewUrl ? (
                     <div className="h-48 w-full overflow-hidden rounded-md">
-                      <img src={imagePreviewUrl} alt="Image de l'événement" className="h-full w-full object-cover" />
+                      <img src={listImagePreviewUrl} alt="Image de liste" className="h-full w-full object-cover" />
                     </div>
                   ) : (
                     <div className="h-48 w-full flex items-center justify-center rounded-md bg-gray-100">
@@ -371,7 +398,7 @@ const CreateEvent = ({ eventId }: CreateEventProps) => {
                   )}
                 </div>
                 
-                <Tabs defaultValue="url" onValueChange={(value) => setUploadMethod(value as "url" | "file")}>
+                <Tabs defaultValue="url" onValueChange={(value) => setUploadMethodList(value as "url" | "file")}>
                   <TabsList className="grid w-full grid-cols-2">
                     <TabsTrigger value="url">Par URL</TabsTrigger>
                     <TabsTrigger value="file">Télécharger</TabsTrigger>
@@ -387,7 +414,7 @@ const CreateEvent = ({ eventId }: CreateEventProps) => {
                             <Input placeholder="https://example.com/image.jpg" {...field} />
                           </FormControl>
                           <FormDescription>
-                            Entrez l'URL d'une image pour illustrer votre événement
+                            URL de l'image pour la liste des événements
                           </FormDescription>
                           <FormMessage />
                         </FormItem>
@@ -400,7 +427,7 @@ const CreateEvent = ({ eventId }: CreateEventProps) => {
                       <div className="border-2 border-dashed border-gray-200 rounded-md p-6">
                         <input 
                           type="file"
-                          ref={fileInputRef}
+                          ref={fileInputRefList}
                           accept="image/*"
                           className="block w-full text-sm text-gray-500"
                           onChange={(e) => {
@@ -414,12 +441,11 @@ const CreateEvent = ({ eventId }: CreateEventProps) => {
                                   description: "La taille maximum est de 5 MB",
                                 });
                                 e.target.value = "";
-                                setSelectedImage(null);
+                                setSelectedListImage(null);
                               } else {
-                                setSelectedImage(file);
-                                // Create preview URL
+                                setSelectedListImage(file);
                                 const url = URL.createObjectURL(file);
-                                setImagePreviewUrl(url);
+                                setListImagePreviewUrl(url);
                               }
                             }
                           }}
@@ -431,20 +457,20 @@ const CreateEvent = ({ eventId }: CreateEventProps) => {
                       
                       <Button 
                         type="button" 
-                        className="bg-[#FF5500]"
-                        disabled={!selectedImage || isUploading}
+                        className="bg-[#F89720]"
+                        disabled={!selectedListImage || isUploadingList}
                         onClick={async () => {
-                          if (selectedImage) {
-                            setIsUploading(true);
+                          if (selectedListImage) {
+                            setIsUploadingList(true);
                             try {
-                              await uploadEventImageMutation.mutateAsync(selectedImage);
+                              await uploadEventImageMutation.mutateAsync(selectedListImage);
                             } catch (error) {
                               console.error("Erreur lors du téléchargement:", error);
                             }
                           }
                         }}
                       >
-                        {isUploading ? (
+                        {isUploadingList ? (
                           "Téléchargement en cours..."
                         ) : (
                           <>
@@ -466,9 +492,161 @@ const CreateEvent = ({ eventId }: CreateEventProps) => {
             </div>
           </div>
         </div>
+
+        {/* Image pour la page de détail */}
+        <div className="space-y-4">
+          <div className="flex items-center gap-2">
+            <h3 className="text-lg font-semibold">Image de détail</h3>
+            <span className="text-sm text-gray-500">(Pour la page de l'événement)</span>
+          </div>
+          <div className="bg-green-50 p-3 rounded-md">
+            <p className="text-sm text-green-700">
+              <strong>Format recommandé :</strong> 800x400 pixels (2:1) - Cette image apparaîtra dans la page de détail de l'événement
+            </p>
+          </div>
+          <div className="flex flex-col md:flex-row gap-6">
+            <div className="w-full md:w-1/3">
+              <div className="rounded-md border border-gray-200 p-4">
+                <div className="mb-4 text-center">
+                  {detailImagePreviewUrl ? (
+                    <div className="h-48 w-full overflow-hidden rounded-md">
+                      <img src={detailImagePreviewUrl} alt="Image de détail" className="h-full w-full object-cover" />
+                    </div>
+                  ) : (
+                    <div className="h-48 w-full flex items-center justify-center rounded-md bg-gray-100">
+                      <Image size={48} className="text-gray-400" />
+                    </div>
+                  )}
+                </div>
+                
+                <Tabs defaultValue="url" onValueChange={(value) => setUploadMethodDetail(value as "url" | "file")}>
+                  <TabsList className="grid w-full grid-cols-2">
+                    <TabsTrigger value="url">Par URL</TabsTrigger>
+                    <TabsTrigger value="file">Télécharger</TabsTrigger>
+                  </TabsList>
+                  
+                  <TabsContent value="url" className="mt-4">
+                    <FormField
+                      control={form.control}
+                      name="detailImageUrl"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormControl>
+                            <Input placeholder="https://example.com/image.jpg" {...field} />
+                          </FormControl>
+                          <FormDescription>
+                            URL de l'image pour la page de détail
+                          </FormDescription>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </TabsContent>
+                  
+                  <TabsContent value="file" className="mt-4">
+                    <div className="space-y-4">
+                      <div className="border-2 border-dashed border-gray-200 rounded-md p-6">
+                        <input 
+                          type="file"
+                          ref={fileInputRefDetail}
+                          accept="image/*"
+                          className="block w-full text-sm text-gray-500"
+                          onChange={(e) => {
+                            if (e.target.files && e.target.files.length > 0) {
+                              const file = e.target.files[0];
+                              const maxSize = 5 * 1024 * 1024; // 5MB
+                              if (file.size > maxSize) {
+                                toast({
+                                  variant: "destructive",
+                                  title: "Fichier trop volumineux",
+                                  description: "La taille maximum est de 5 MB",
+                                });
+                                e.target.value = "";
+                                setSelectedDetailImage(null);
+                              } else {
+                                setSelectedDetailImage(file);
+                                const url = URL.createObjectURL(file);
+                                setDetailImagePreviewUrl(url);
+                              }
+                            }
+                          }}
+                        />
+                        <p className="text-xs text-gray-500 mt-2">
+                          Formats acceptés: JPG, PNG, GIF, WebP (max 5 MB)
+                        </p>
+                      </div>
+                      
+                      <Button 
+                        type="button" 
+                        className="bg-[#F89720]"
+                        disabled={!selectedDetailImage || isUploadingDetail}
+                        onClick={async () => {
+                          if (selectedDetailImage) {
+                            setIsUploadingDetail(true);
+                            try {
+                              // Créer une mutation spécifique pour l'image de détail
+                              const formData = new FormData();
+                              formData.append('file', selectedDetailImage);
+                              
+                              const res = await fetch('/api/upload/event-image', {
+                                method: 'POST',
+                                body: formData
+                              });
+                              
+                              if (!res.ok) {
+                                throw new Error(`Erreur ${res.status}: ${res.statusText}`);
+                              }
+                              
+                              const data = await res.json();
+                              form.setValue('detailImageUrl', data.url);
+                              setDetailImagePreviewUrl(data.url);
+                              
+                              toast({
+                                title: "Image téléchargée",
+                                description: "L'image de détail a été téléchargée avec succès"
+                              });
+                              
+                              setSelectedDetailImage(null);
+                              if (fileInputRefDetail.current) {
+                                fileInputRefDetail.current.value = '';
+                              }
+                            } catch (error: any) {
+                              toast({
+                                variant: "destructive",
+                                title: "Erreur",
+                                description: error.message || "Une erreur est survenue lors du téléchargement"
+                              });
+                            } finally {
+                              setIsUploadingDetail(false);
+                            }
+                          }
+                        }}
+                      >
+                        {isUploadingDetail ? (
+                          "Téléchargement en cours..."
+                        ) : (
+                          <>
+                            <UploadCloud className="mr-2 h-4 w-4" /> Télécharger l'image
+                          </>
+                        )}
+                      </Button>
+                    </div>
+                  </TabsContent>
+                </Tabs>
+              </div>
+            </div>
+            
+            <div className="w-full md:w-2/3">
+              <FormDescription className="text-sm">
+                Cette image sera affichée en grand format dans la page de détail de l'événement. 
+                Choisissez une image haute résolution qui met en valeur votre événement.
+              </FormDescription>
+            </div>
+          </div>
+        </div>
         
         <div className="flex justify-end pt-4">
-          <Button type="submit" className="bg-[#FF5500]" disabled={isSubmitting}>
+          <Button type="submit" className="bg-[#F89720]" disabled={isSubmitting}>
             {isSubmitting 
               ? (isEditMode ? "Mise à jour..." : "Publication en cours...") 
               : (isEditMode ? "Mettre à jour l'événement" : "Publier l'événement")}
