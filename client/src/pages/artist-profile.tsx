@@ -1,7 +1,7 @@
 import { useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useParams, Link } from "wouter";
-import { User, ProfileMedia } from "@shared/schema";
+import { User, ProfileMedia, Event } from "@shared/schema";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -15,8 +15,8 @@ import {
   FaGlobe,
   FaLinkedin,
 } from "react-icons/fa";
-import { BadgeCheck, Mail, Download, MapPin } from "lucide-react";
-import { getDisciplineLabel } from "@/lib/utils";
+import { BadgeCheck, Mail, Download, MapPin, Calendar } from "lucide-react";
+import { getDisciplineLabel, formatDate } from "@/lib/utils";
 import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
 import FormattedText from "@/components/ui/formatted-text";
@@ -37,6 +37,19 @@ const ArtistProfile = () => {
     queryKey: [`/api/users/${id}/media`],
     enabled: !!id,
   });
+
+  // Fetch artist events
+  const { data: allEvents } = useQuery<Event[]>({
+    queryKey: ["/api/events"],
+  });
+
+  // Filter events created by this artist
+  const artistEvents = allEvents?.filter(event => event.organizerId === numericId) || [];
+  
+  // Debug logging
+  console.log('Artist ID:', numericId);
+  console.log('All events:', allEvents);
+  console.log('Artist events:', artistEvents);
 
   // Redirect to messages with this artist
   const handleContactArtist = () => {
@@ -300,6 +313,65 @@ const ArtistProfile = () => {
           </div>
         )}
       </Tabs>
+
+      {/* Section des événements */}
+      <div className="mt-12">
+        <h2 className="text-2xl font-bold mb-6">Événements organisés</h2>
+        {artistEvents.length > 0 ? (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {artistEvents.map((event) => {
+              const eventDate = new Date(event.eventDate);
+              const imageUrl = event.imageUrl || 
+                `https://images.unsplash.com/photo-${['1505236858219-8359eb29e329', '1514525253161-7a46d19cd819', '1516450360452-9312f5e86fc7'][Math.floor(Math.random() * 3)]}?ixlib=rb-1.2.1&auto=format&fit=crop&w=500&q=80`;
+              
+              // Format month and day for the event date badge
+              const month = eventDate.toLocaleString('fr-FR', { month: 'short' }).toUpperCase();
+              const day = eventDate.getDate();
+
+              return (
+                <Card key={event.id} className="overflow-hidden shadow-md hover:shadow-lg transition-shadow">
+                  <div 
+                    className="h-48 bg-cover bg-center relative" 
+                    style={{ backgroundImage: `url('${imageUrl}')` }}
+                  >
+                    <div className="absolute top-4 left-4">
+                      <div className="bg-[#F89720] text-white p-2 text-center rounded">
+                        <span className="block text-sm">{month}</span>
+                        <span className="block text-2xl font-bold">{day}</span>
+                      </div>
+                    </div>
+                  </div>
+                  <CardContent className="p-6">
+                    <h3 className="font-bold text-xl mb-2">{event.title}</h3>
+                    <p className="text-gray-600 text-sm mb-4">
+                      {event.description.length > 100 
+                        ? `${event.description.substring(0, 100)}...` 
+                        : event.description}
+                    </p>
+                    <div className="flex items-center text-gray-600 text-sm mb-4">
+                      <MapPin className="mr-2 h-4 w-4" />
+                      <span>{event.location}</span>
+                    </div>
+                    <Link href={`/events/${event.id}`}>
+                      <Button 
+                        variant="outline" 
+                        className="w-full border-[#F89720] text-[#F89720] hover:bg-[#F89720] hover:text-white"
+                      >
+                        Voir l'événement
+                      </Button>
+                    </Link>
+                  </CardContent>
+                </Card>
+              );
+            })}
+          </div>
+        ) : (
+          <div className="text-center py-8 bg-white rounded-lg shadow-sm">
+            <Calendar className="mx-auto h-12 w-12 text-gray-400 mb-4" />
+            <p className="text-gray-500">Aucun événement organisé par cet artiste.</p>
+          </div>
+        )}
+      </div>
     </div>
   );
 };
