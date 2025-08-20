@@ -144,13 +144,13 @@ const ArtistProfile = () => {
             <div className="flex items-center mb-2">
               <h1 className="text-3xl font-bold mr-2">{artist.firstName} {artist.lastName}</h1>
               {artist.isApproved && (
-                <BadgeCheck className="h-5 w-5 text-[#FF5500]" aria-label="Artiste vérifié" />
+                <BadgeCheck className="h-5 w-5 text-[#F89720]" aria-label="Artiste vérifié" />
               )}
             </div>
             
             {artist.discipline && (
               <div className="mb-4">
-                <span className="bg-[#FF5500] text-white px-2 py-1 rounded text-sm">
+                <span className="bg-[#F89720] text-white px-2 py-1 rounded text-sm">
                   {getDisciplineLabel(artist.discipline)}
                 </span>
               </div>
@@ -189,7 +189,7 @@ const ArtistProfile = () => {
                     href={url} 
                     target="_blank" 
                     rel="noopener noreferrer"
-                    className="text-gray-600 hover:text-[#FF5500] text-xl"
+                    className="text-gray-600 hover:text-[#F89720] text-xl"
                   >
                     <Icon />
                   </a>
@@ -201,7 +201,7 @@ const ArtistProfile = () => {
                   href={artist.website} 
                   target="_blank" 
                   rel="noopener noreferrer"
-                  className="text-gray-600 hover:text-[#FF5500] text-xl"
+                  className="text-gray-600 hover:text-[#F89720] text-xl"
                 >
                   <FaGlobe />
                 </a>
@@ -209,7 +209,7 @@ const ArtistProfile = () => {
             </div>
 
             <div className="flex flex-wrap gap-3">
-              <Button onClick={handleContactArtist} className="bg-[#FF5500]">
+              <Button onClick={handleContactArtist} className="bg-[#F89720]">
                 <Mail className="mr-2 h-4 w-4" /> Contacter
               </Button>
               
