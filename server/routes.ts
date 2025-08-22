@@ -2038,6 +2038,48 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Admin: Reset user password
+  app.post("/api/admin/users/:id/reset-password", requireAdmin, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const { newPassword } = req.body;
+      
+      if (isNaN(id)) {
+        return res.status(400).json({ message: "Invalid user ID" });
+      }
+      
+      if (!newPassword || newPassword.length < 6) {
+        return res.status(400).json({ message: "New password must be at least 6 characters long" });
+      }
+      
+      const user = await storage.getUser(id);
+      
+      if (!user) {
+        return res.status(404).json({ message: "User not found" });
+      }
+      
+      // Hash the new password
+      const bcrypt = require('bcryptjs');
+      const saltRounds = 10;
+      const hashedPassword = await bcrypt.hash(newPassword, saltRounds);
+      
+      // Update user password
+      const updatedUser = await storage.updateUser(id, { password: hashedPassword });
+      
+      if (!updatedUser) {
+        return res.status(404).json({ message: "User not found" });
+      }
+      
+      // Log the password reset action
+      console.log(`Admin reset password for user ${user.email} (ID: ${id})`);
+      
+      res.status(200).json({ message: "Password reset successfully" });
+    } catch (error) {
+      console.error("Error resetting user password:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
   // Route admin pour gérer les annonces TROC
   app.get("/api/admin/troc", requireAdmin, async (req, res) => {
     console.log('🔧 ADMIN TROC - GET appelé');
