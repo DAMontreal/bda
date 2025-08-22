@@ -11,6 +11,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Checkbox } from "@/components/ui/checkbox";
 import { useToast } from "@/hooks/use-toast";
 import { disciplines } from "@/lib/utils";
 import { UploadCloud, Camera } from "lucide-react";
@@ -27,6 +28,7 @@ const profileSchema = z.object({
   lastName: z.string().min(1, "Le nom est requis"),
   bio: z.string().optional(),
   discipline: z.string().optional(),
+  disciplines: z.array(z.string()).optional(),
   location: z.string().optional(),
   website: z.string().url("Veuillez entrer une URL valide").optional().or(z.literal("")),
   profileImage: z.string().url("Veuillez entrer une URL valide").optional().or(z.literal("")),
@@ -52,6 +54,7 @@ const ProfileForm = ({ user }: ProfileFormProps) => {
       lastName: user.lastName,
       bio: user.bio || "",
       discipline: user.discipline || "",
+      disciplines: user.disciplines || [],
       location: user.location || "",
       website: user.website || "",
       profileImage: user.profileImage || "",
@@ -198,7 +201,7 @@ const ProfileForm = ({ user }: ProfileFormProps) => {
             name="discipline"
             render={({ field }) => (
               <FormItem>
-                <FormLabel>Discipline artistique</FormLabel>
+                <FormLabel>Discipline principale</FormLabel>
                 <Select 
                   onValueChange={field.onChange} 
                   value={field.value} 
@@ -206,7 +209,7 @@ const ProfileForm = ({ user }: ProfileFormProps) => {
                 >
                   <FormControl>
                     <SelectTrigger>
-                      <SelectValue placeholder="Sélectionnez votre discipline" />
+                      <SelectValue placeholder="Sélectionnez votre discipline principale" />
                     </SelectTrigger>
                   </FormControl>
                   <SelectContent>
@@ -217,6 +220,9 @@ const ProfileForm = ({ user }: ProfileFormProps) => {
                     ))}
                   </SelectContent>
                 </Select>
+                <FormDescription>
+                  Cette discipline s'affichera en premier sur votre profil
+                </FormDescription>
                 <FormMessage />
               </FormItem>
             )}
@@ -239,6 +245,42 @@ const ProfileForm = ({ user }: ProfileFormProps) => {
             )}
           />
         </div>
+        
+        <FormField
+          control={form.control}
+          name="disciplines"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Disciplines artistiques (optionnel)</FormLabel>
+              <FormDescription>
+                Sélectionnez toutes les disciplines qui décrivent votre pratique artistique
+              </FormDescription>
+              <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mt-4">
+                {disciplines.map((discipline) => (
+                  <FormItem key={discipline.value} className="flex flex-row items-start space-x-3 space-y-0">
+                    <FormControl>
+                      <Checkbox
+                        checked={field.value?.includes(discipline.value) || false}
+                        onCheckedChange={(checked) => {
+                          const currentValue = field.value || [];
+                          if (checked) {
+                            field.onChange([...currentValue, discipline.value]);
+                          } else {
+                            field.onChange(currentValue.filter((item) => item !== discipline.value));
+                          }
+                        }}
+                      />
+                    </FormControl>
+                    <FormLabel className="text-sm font-normal">
+                      {discipline.label}
+                    </FormLabel>
+                  </FormItem>
+                ))}
+              </div>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
         
         <div className="space-y-4">
           <h3 className="text-lg font-semibold">Photo de profil</h3>
@@ -317,7 +359,7 @@ const ProfileForm = ({ user }: ProfileFormProps) => {
                       
                       <Button 
                         type="button" 
-                        className="bg-[#FF5500]"
+                        className="bg-[#F89720]"
                         disabled={!selectedImage || isUploading}
                         onClick={async () => {
                           if (selectedImage) {
@@ -382,7 +424,7 @@ const ProfileForm = ({ user }: ProfileFormProps) => {
         />
         
         <div className="flex justify-end">
-          <Button type="submit" className="bg-[#FF5500]" disabled={isSubmitting}>
+          <Button type="submit" className="bg-[#F89720]" disabled={isSubmitting}>
             {isSubmitting ? "Enregistrement..." : "Enregistrer les modifications"}
           </Button>
         </div>
