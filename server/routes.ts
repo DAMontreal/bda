@@ -21,6 +21,7 @@ import { resizeProfileImage } from "./image-utils";
 import { uploadTrocImage } from "./api/upload/troc-image";
 import { sql } from "drizzle-orm";
 import { db } from './db';
+import bcrypt from 'bcryptjs';
 
 declare module "express-session" {
   interface SessionData {
@@ -150,6 +151,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "Email already exists" });
       }
       
+      // Hash the password before storing
+      const saltRounds = 10;
+      const hashedPassword = await bcrypt.hash(userData.password, saltRounds);
+      
       // Utiliser l'image par défaut fournie par le client ou en générer une
       let profileImagePath = `/default-profile-images/bottin${Math.floor(Math.random() * 4) + 1}.jpg`;
       
@@ -158,9 +163,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         profileImagePath = `/default-profile-images/${req.body.defaultProfileImage}`;
       }
       
-      // Create user with profile image
+      // Create user with profile image and hashed password
       const user = await storage.createUser({
         ...userData,
+        password: hashedPassword,
         profileImage: profileImagePath
       });
       
@@ -199,7 +205,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       const user = await storage.getUserByUsername(username);
       
-      if (!user || user.password !== password) {
+      if (!user) {
+        return res.status(401).json({ message: "Invalid credentials" });
+      }
+      
+      // Check password with bcrypt
+      const isValidPassword = await bcrypt.compare(password, user.password);
+      
+      if (!isValidPassword) {
         return res.status(401).json({ message: "Invalid credentials" });
       }
       
@@ -211,11 +224,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
       req.session.userId = user.id;
       req.session.isAdmin = user.isAdmin || false;
       
+      console.log('🔐 LOGIN SUCCESS - User:', user.email, 'isAdmin:', user.isAdmin);
+      
       // Don't return password
       const { password: _, ...userWithoutPassword } = user;
       
       res.status(200).json(userWithoutPassword);
     } catch (error) {
+      console.error('Login error:', error);
       res.status(500).json({ message: "Internal server error" });
     }
   });
@@ -320,7 +336,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       // Hash the new password
-      const bcrypt = require('bcryptjs');
       const saltRounds = 10;
       const hashedPassword = await bcrypt.hash(newPassword, saltRounds);
 
@@ -2041,8 +2056,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Admin: Reset user password
   app.post("/api/admin/users/:id/reset-password", requireAdmin, async (req, res) => {
     try {
+      console.log('🔐 PASSWORD RESET - Request received');
+      console.log('🔐 Session info:', {
+        userId: req.session.userId,
+        isAdmin: req.session.isAdmin,
+        sessionId: req.sessionID
+      });
+      
       const id = parseInt(req.params.id);
       const { newPassword } = req.body;
+      
+      console.log('🔐 PASSWORD RESET - Target user ID:', id);
+      console.log('🔐 PASSWORD RESET - Password length:', newPassword?.length);
       
       if (isNaN(id)) {
         return res.status(400).json({ message: "Invalid user ID" });
@@ -2058,10 +2083,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ message: "User not found" });
       }
       
+      console.log('🔐 PASSWORD RESET - Found user:', user.email);
+      
       // Hash the new password
-      const bcrypt = require('bcryptjs');
       const saltRounds = 10;
       const hashedPassword = await bcrypt.hash(newPassword, saltRounds);
+      
+      console.log('🔐 PASSWORD RESET - Password hashed, updating user...');
       
       // Update user password
       const updatedUser = await storage.updateUser(id, { password: hashedPassword });
@@ -2071,11 +2099,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       // Log the password reset action
-      console.log(`Admin reset password for user ${user.email} (ID: ${id})`);
+      console.log(`🔐 PASSWORD RESET - SUCCESS: Admin reset password for user ${user.email} (ID: ${id})`);
       
       res.status(200).json({ message: "Password reset successfully" });
     } catch (error) {
-      console.error("Error resetting user password:", error);
+      console.error("🔐 PASSWORD RESET - ERROR:", error);
       res.status(500).json({ message: "Internal server error" });
     }
   });
