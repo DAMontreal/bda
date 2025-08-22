@@ -38,8 +38,10 @@ const Artists = () => {
           (artist.bio && artist.bio.toLowerCase().includes(keyword.toLowerCase()))
         );
     
-    // Filter by discipline
-    const disciplineMatch = !discipline || discipline === "all" ? true : artist.discipline === discipline;
+    // Filter by discipline (cherche dans la discipline principale ET les disciplines multiples)
+    const disciplineMatch = !discipline || discipline === "all" ? true : 
+      artist.discipline === discipline || 
+      (artist.disciplines && artist.disciplines.includes(discipline));
     
     return keywordMatch && disciplineMatch;
   });

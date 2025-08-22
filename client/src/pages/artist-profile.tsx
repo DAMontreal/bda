@@ -45,11 +45,6 @@ const ArtistProfile = () => {
 
   // Filter events created by this artist
   const artistEvents = allEvents?.filter(event => event.organizerId === numericId) || [];
-  
-  // Debug logging
-  console.log('Artist ID:', numericId);
-  console.log('All events:', allEvents);
-  console.log('Artist events:', artistEvents);
 
   // Redirect to messages with this artist
   const handleContactArtist = () => {
@@ -161,11 +156,22 @@ const ArtistProfile = () => {
               )}
             </div>
             
-            {artist.discipline && (
+            {(artist.discipline || (artist.disciplines && artist.disciplines.length > 0)) && (
               <div className="mb-4">
-                <span className="bg-[#F89720] text-white px-2 py-1 rounded text-sm">
-                  {getDisciplineLabel(artist.discipline)}
-                </span>
+                <div className="flex flex-wrap gap-2">
+                  {/* Discipline principale */}
+                  {artist.discipline && (
+                    <span className="bg-[#F89720] text-white px-3 py-1 rounded text-sm font-medium">
+                      {getDisciplineLabel(artist.discipline)}
+                    </span>
+                  )}
+                  {/* Autres disciplines */}
+                  {artist.disciplines?.filter(d => d !== artist.discipline).map((discipline) => (
+                    <span key={discipline} className="border border-[#F89720] text-[#F89720] px-3 py-1 rounded text-sm">
+                      {getDisciplineLabel(discipline)}
+                    </span>
+                  ))}
+                </div>
               </div>
             )}
 
