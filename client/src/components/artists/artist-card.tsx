@@ -22,15 +22,30 @@ const ArtistCard = ({ artist }: ArtistCardProps) => {
         style={{ backgroundImage: `url('${imageUrl}')` }}
       />
       <CardContent className="p-6">
-        <div className="flex justify-between items-start mb-3">
-          <h3 className="font-bold text-xl">
+        <div className="mb-3">
+          <h3 className="font-bold text-xl mb-2">
             {artist.firstName} {artist.lastName}
           </h3>
-          {artist.discipline && (
-            <Badge className="bg-[#FF5500] text-white text-xs px-2 py-1 rounded">
-              {getDisciplineLabel(artist.discipline)}
-            </Badge>
-          )}
+          <div className="flex flex-wrap gap-2">
+            {/* Discipline principale en premier */}
+            {artist.discipline && (
+              <Badge className="bg-[#F89720] text-white text-xs px-2 py-1 rounded">
+                {getDisciplineLabel(artist.discipline)}
+              </Badge>
+            )}
+            {/* Autres disciplines */}
+            {artist.disciplines?.filter(d => d !== artist.discipline).slice(0, 3).map((discipline) => (
+              <Badge key={discipline} variant="outline" className="text-xs px-2 py-1 rounded border-[#F89720] text-[#F89720]">
+                {getDisciplineLabel(discipline)}
+              </Badge>
+            ))}
+            {/* Indicateur s'il y a plus de disciplines */}
+            {artist.disciplines && artist.disciplines.filter(d => d !== artist.discipline).length > 3 && (
+              <Badge variant="secondary" className="text-xs px-2 py-1 rounded">
+                +{artist.disciplines.filter(d => d !== artist.discipline).length - 3}
+              </Badge>
+            )}
+          </div>
         </div>
         <p className="text-gray-600 text-sm mb-4">
           {artist.bio ? 
@@ -56,7 +71,7 @@ const ArtistCard = ({ artist }: ArtistCardProps) => {
                 href={url} 
                 target="_blank" 
                 rel="noopener noreferrer"
-                className="text-gray-500 hover:text-[#FF5500]"
+                className="text-gray-500 hover:text-[#F89720]"
               >
                 <Icon />
               </a>
@@ -64,7 +79,7 @@ const ArtistCard = ({ artist }: ArtistCardProps) => {
           })}
         </div>
         <Link href={`/artists/${artist.id}`}>
-          <Button variant="outline" className="w-full border-[#FF5500] text-[#FF5500] hover:bg-[#FF5500] hover:text-white">
+          <Button variant="outline" className="w-full border-[#F89720] text-[#F89720] hover:bg-[#F89720] hover:text-white">
             Voir le profil
           </Button>
         </Link>
