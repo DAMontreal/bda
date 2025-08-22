@@ -5,18 +5,22 @@ import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
-import { Search, UserX, ShieldCheck, Shield, UserCog } from "lucide-react";
+import { Search, UserX, ShieldCheck, Shield, UserCog, KeyRound } from "lucide-react";
 import { User } from "@shared/schema";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { getDisciplineLabel } from "@/lib/utils";
 import EditUserProfile from "./edit-user-profile";
-import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogTitle, DialogHeader } from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
 
 const UserManagement = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [editingUser, setEditingUser] = useState<User | null>(null);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [resetPasswordUser, setResetPasswordUser] = useState<User | null>(null);
+  const [isResetPasswordDialogOpen, setIsResetPasswordDialogOpen] = useState(false);
+  const [newPassword, setNewPassword] = useState("");
   const queryClient = useQueryClient();
   const { toast } = useToast();
 
@@ -67,6 +71,29 @@ const UserManagement = () => {
     },
   });
 
+  // Reset password mutation
+  const resetPasswordMutation = useMutation({
+    mutationFn: async ({ userId, newPassword }: { userId: number; newPassword: string }) => {
+      return apiRequest("POST", `/api/admin/users/${userId}/reset-password`, { newPassword });
+    },
+    onSuccess: () => {
+      setIsResetPasswordDialogOpen(false);
+      setResetPasswordUser(null);
+      setNewPassword("");
+      toast({
+        title: "Mot de passe réinitialisé",
+        description: "Le mot de passe a été modifié avec succès",
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        variant: "destructive",
+        title: "Erreur",
+        description: error.message || "Une erreur est survenue lors de la réinitialisation",
+      });
+    },
+  });
+
   // Handle admin toggle
   const handleToggleAdmin = (userId: number, currentStatus: boolean) => {
     const action = currentStatus ? "retirer les droits d'administrateur de" : "faire";
@@ -95,6 +122,30 @@ const UserManagement = () => {
     setTimeout(() => {
       setEditingUser(null);
     }, 200);
+  };
+
+  // Handle reset password
+  const handleResetPassword = (user: User) => {
+    setResetPasswordUser(user);
+    setNewPassword("");
+    setIsResetPasswordDialogOpen(true);
+  };
+
+  // Handle reset password submit
+  const handleResetPasswordSubmit = () => {
+    if (!resetPasswordUser || !newPassword || newPassword.length < 6) {
+      toast({
+        variant: "destructive",
+        title: "Erreur",
+        description: "Le mot de passe doit contenir au moins 6 caractères",
+      });
+      return;
+    }
+
+    resetPasswordMutation.mutate({
+      userId: resetPasswordUser.id,
+      newPassword,
+    });
   };
 
   // Get initials for avatar fallback
@@ -194,6 +245,15 @@ const UserManagement = () => {
                   <Button
                     variant="ghost"
                     size="icon"
+                    title="Réinitialiser le mot de passe"
+                    onClick={() => handleResetPassword(user)}
+                    className="text-purple-600 hover:text-purple-800"
+                  >
+                    <KeyRound className="h-5 w-5" />
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="icon"
                     title={user.isAdmin ? "Retirer les droits d'administrateur" : "Faire administrateur"}
                     onClick={() => handleToggleAdmin(user.id, user.isAdmin || false)}
                     className={user.isAdmin ? "text-blue-600 hover:text-blue-800" : "text-gray-600 hover:text-gray-800"}
@@ -229,6 +289,59 @@ const UserManagement = () => {
               onSuccess={handleEditDialogClose} 
               onCancel={handleEditDialogClose} 
             />
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Dialog for resetting user password */}
+      <Dialog open={isResetPasswordDialogOpen} onOpenChange={setIsResetPasswordDialogOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>
+              Réinitialiser le mot de passe
+            </DialogTitle>
+          </DialogHeader>
+          
+          {resetPasswordUser && (
+            <div className="space-y-4">
+              <p className="text-sm text-gray-600">
+                Vous êtes sur le point de réinitialiser le mot de passe de{" "}
+                <strong>{resetPasswordUser.firstName} {resetPasswordUser.lastName}</strong>
+                {" "}({resetPasswordUser.email}).
+              </p>
+              
+              <div className="space-y-2">
+                <Label htmlFor="newPassword">Nouveau mot de passe</Label>
+                <Input
+                  id="newPassword"
+                  type="password"
+                  value={newPassword}
+                  onChange={(e) => setNewPassword(e.target.value)}
+                  placeholder="Entrez le nouveau mot de passe"
+                  minLength={6}
+                />
+                <p className="text-xs text-gray-500">
+                  Le mot de passe doit contenir au moins 6 caractères.
+                </p>
+              </div>
+
+              <div className="flex justify-end space-x-2 pt-4">
+                <Button
+                  variant="outline"
+                  onClick={() => setIsResetPasswordDialogOpen(false)}
+                  disabled={resetPasswordMutation.isPending}
+                >
+                  Annuler
+                </Button>
+                <Button
+                  onClick={handleResetPasswordSubmit}
+                  disabled={resetPasswordMutation.isPending || newPassword.length < 6}
+                  className="bg-[#F89720] hover:bg-[#F89720]/90"
+                >
+                  {resetPasswordMutation.isPending ? "Réinitialisation..." : "Réinitialiser"}
+                </Button>
+              </div>
+            </div>
           )}
         </DialogContent>
       </Dialog>
