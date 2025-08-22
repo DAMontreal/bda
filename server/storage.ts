@@ -84,13 +84,14 @@ export class MemStorage implements IStorage {
       email: "admin@dam.org",
       firstName: "Admin",
       lastName: "DAM",
-      profileImage: undefined,
+      profileImage: null,
       bio: "DAM Administrator",
       discipline: "Administration",
+      disciplines: ["Administration"],
       location: "Montreal",
-      website: undefined,
+      website: null,
       socialMedia: {},
-      cv: undefined,
+      cv: null,
       isApproved: true,
       isAdmin: true,
       createdAt: new Date(),
@@ -119,7 +120,15 @@ export class MemStorage implements IStorage {
   async createUser(insertUser: InsertUser): Promise<User> {
     const id = this.userIdCounter++;
     const user: User = { 
-      ...insertUser, 
+      ...insertUser,
+      profileImage: insertUser.profileImage || null,
+      bio: insertUser.bio || null,
+      discipline: insertUser.discipline || null,
+      disciplines: insertUser.disciplines || null,
+      location: insertUser.location || null,
+      website: insertUser.website || null,
+      socialMedia: insertUser.socialMedia || null,
+      cv: insertUser.cv || null,
       id, 
       isApproved: false, 
       isAdmin: false, 
@@ -157,7 +166,12 @@ export class MemStorage implements IStorage {
 
   async createProfileMedia(insertMedia: InsertProfileMedia): Promise<ProfileMedia> {
     const id = this.profileMediaIdCounter++;
-    const media: ProfileMedia = { ...insertMedia, id, createdAt: new Date() };
+    const media: ProfileMedia = { 
+      ...insertMedia,
+      description: insertMedia.description || null,
+      id, 
+      createdAt: new Date() 
+    };
     this.profileMedia.set(id, media);
     return media;
   }
@@ -175,7 +189,7 @@ export class MemStorage implements IStorage {
     let events = Array.from(this.events.values());
     
     // Sort by event date (newest first) - changed to descending order
-    events = events.sort((a, b) => b.eventDate.getTime() - a.eventDate.getTime());
+    events = events.sort((a, b) => (b.eventDate?.getTime() || 0) - (a.eventDate?.getTime() || 0));
     
     if (limit) {
       events = events.slice(0, limit);
@@ -186,7 +200,16 @@ export class MemStorage implements IStorage {
 
   async createEvent(insertEvent: InsertEvent): Promise<Event> {
     const id = this.eventIdCounter++;
-    const event: Event = { ...insertEvent, id, createdAt: new Date() };
+    const event: Event = { 
+      ...insertEvent,
+      eventDate: typeof insertEvent.eventDate === 'string' ? new Date(insertEvent.eventDate) : insertEvent.eventDate,
+      imageUrl: insertEvent.imageUrl || null,
+      detailImageUrl: insertEvent.detailImageUrl || null,
+      registrationUrl: insertEvent.registrationUrl || null,
+      organizerId: insertEvent.organizerId || null,
+      id, 
+      createdAt: new Date() 
+    };
     this.events.set(id, event);
     return event;
   }
@@ -217,7 +240,7 @@ export class MemStorage implements IStorage {
     }
     
     // Sort by created date (newest first)
-    ads = ads.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+    ads = ads.sort((a, b) => (b.createdAt?.getTime() || 0) - (a.createdAt?.getTime() || 0));
     
     if (options?.limit) {
       ads = ads.slice(0, options.limit);
@@ -228,7 +251,12 @@ export class MemStorage implements IStorage {
 
   async createTrocAd(insertAd: InsertTrocAd): Promise<TrocAd> {
     const id = this.trocAdIdCounter++;
-    const ad: TrocAd = { ...insertAd, id, createdAt: new Date() };
+    const ad: TrocAd = { 
+      ...insertAd,
+      imageUrl: insertAd.imageUrl || null,
+      id, 
+      createdAt: new Date() 
+    };
     this.trocAds.set(id, ad);
     return ad;
   }
@@ -264,7 +292,7 @@ export class MemStorage implements IStorage {
           (message.senderId === user1Id && message.receiverId === user2Id) ||
           (message.senderId === user2Id && message.receiverId === user1Id)
       )
-      .sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime());
+      .sort((a, b) => (a.createdAt?.getTime() || 0) - (b.createdAt?.getTime() || 0));
   }
 
   async createMessage(insertMessage: InsertMessage): Promise<Message> {
@@ -290,8 +318,12 @@ export class MemStorage implements IStorage {
 
   // Session operations
   async createSession(session: InsertSession): Promise<Session> {
-    this.sessions.set(session.id, session as Session);
-    return session as Session;
+    const fullSession: Session = {
+      ...session,
+      id: session.id || crypto.randomUUID()
+    };
+    this.sessions.set(fullSession.id, fullSession);
+    return fullSession;
   }
 
   async getSessionById(id: string): Promise<Session | undefined> {
