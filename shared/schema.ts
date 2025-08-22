@@ -12,7 +12,8 @@ export const users = pgTable("users", {
   lastName: text("last_name").notNull(),
   profileImage: text("profile_image"),
   bio: text("bio"),
-  discipline: text("discipline"),
+  discipline: text("discipline"), // Discipline principale (pour compatibilité)
+  disciplines: text("disciplines").array(), // Liste des disciplines artistiques
   location: text("location"),
   website: text("website"),
   socialMedia: json("social_media").$type<{
@@ -55,7 +56,8 @@ export const events = pgTable("events", {
   description: text("description").notNull(),
   location: text("location").notNull(),
   eventDate: timestamp("event_date").notNull(),
-  imageUrl: text("image_url"),
+  imageUrl: text("image_url"), // Image pour la liste des événements (format carte/miniature)
+  detailImageUrl: text("detail_image_url"), // Image pour la page de détail de l'événement
   registrationUrl: text("registration_url"),
   organizerId: integer("organizer_id").references(() => users.id),
   createdAt: timestamp("created_at").defaultNow(),
@@ -82,10 +84,7 @@ export const trocAds = pgTable("troc_ads", {
 });
 
 export const insertTrocAdSchema = createInsertSchema(trocAds)
-  .omit({ id: true, createdAt: true, imageUrl: true })
-  .extend({
-    imageUrl: z.string().optional()
-  });
+  .omit({ id: true, createdAt: true });
 
 // Messages
 export const messages = pgTable("messages", {
