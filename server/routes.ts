@@ -16,7 +16,7 @@ import {
 import { StorageBucket, uploadFile, deleteFile } from "./supabase";
 import fileUpload from "express-fileupload";
 import * as fs from 'fs';
-import { sendPasswordResetEmail, sendRegistrationConfirmationEmail } from "./email-service";
+import { sendPasswordResetEmail, sendRegistrationConfirmationEmail, sendApprovalEmail } from "./email-service";
 import { resizeProfileImage } from "./image-utils";
 import { uploadTrocImage } from "./api/upload/troc-image";
 import { sql } from "drizzle-orm";
@@ -134,6 +134,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       cookieSecureEnv: process.env.COOKIE_SECURE
     });
   });
+
+
 
   // Auth routes
   app.post("/api/auth/register", async (req, res) => {
@@ -2075,6 +2077,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       if (!updatedUser) {
         return res.status(404).json({ message: "User not found" });
+      }
+      
+      // Send approval email
+      try {
+        await sendApprovalEmail(updatedUser.email, updatedUser.firstName, updatedUser.lastName);
+        console.log(`Approval email sent to ${updatedUser.email}`);
+      } catch (emailError) {
+        console.error(`Failed to send approval email to ${updatedUser.email}:`, emailError);
+        // Continue with approval even if email fails
       }
       
       // Don't return password
