@@ -1,8 +1,12 @@
 import { Resend } from 'resend';
 
 // Initialiser Resend avec la clé API
-const resendApiKey = process.env.RESEND_API_KEY || 're_AKxXik7H_F5BawhHujicLj8g259URPhqe';
-const resend = new Resend(resendApiKey);
+if (!process.env.RESEND_API_KEY) {
+  console.error('RESEND_API_KEY environment variable is required');
+  throw new Error('RESEND_API_KEY environment variable is required');
+}
+
+const resend = new Resend(process.env.RESEND_API_KEY);
 
 // Utiliser le domaine vérifié de DAM
 const FROM_EMAIL = 'no-reply@diversiteartistique.org';
@@ -19,6 +23,9 @@ export interface EmailOptions {
  */
 export async function sendEmail({ to, subject, html, text }: EmailOptions): Promise<boolean> {
   try {
+    console.log(`📧 SENDING EMAIL - ENV: ${process.env.NODE_ENV}, FROM: ${FROM_EMAIL}, TO: ${to}`);
+    console.log(`📧 RESEND API KEY exists: ${!!process.env.RESEND_API_KEY}`);
+    
     const { data, error } = await resend.emails.send({
       from: FROM_EMAIL,
       to,
@@ -28,14 +35,14 @@ export async function sendEmail({ to, subject, html, text }: EmailOptions): Prom
     });
 
     if (error) {
-      console.error('Erreur lors de l\'envoi de l\'email:', error);
+      console.error('📧 ERROR - Erreur lors de l\'envoi de l\'email:', error);
       return false;
     }
 
-    console.log('Email envoyé avec succès, ID:', data?.id);
+    console.log('📧 SUCCESS - Email envoyé avec succès, ID:', data?.id);
     return true;
   } catch (error) {
-    console.error('Exception lors de l\'envoi de l\'email:', error);
+    console.error('📧 EXCEPTION - Exception lors de l\'envoi de l\'email:', error);
     return false;
   }
 }
