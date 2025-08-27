@@ -356,6 +356,113 @@ export async function sendPasswordResetEmail(
 }
 
 /**
+ * Envoyer un email de notification de changement de mot de passe par l'admin
+ */
+export async function sendPasswordChangedByAdminEmail(
+  to: string, 
+  firstName: string, 
+  lastName: string
+): Promise<boolean> {
+  const subject = 'Votre mot de passe a été modifié - Bottin des artistes DAM';
+  
+  const html = `
+  <!DOCTYPE html>
+  <html>
+    <head>
+      <meta charset="utf-8">
+      <title>Mot de passe modifié - Bottin des artistes DAM</title>
+      <style>
+        body {
+          font-family: Arial, sans-serif;
+          line-height: 1.6;
+          color: #333;
+          margin: 0;
+          padding: 0;
+        }
+        .container {
+          max-width: 600px;
+          margin: 0 auto;
+          padding: 20px;
+        }
+        .header {
+          background-color: #F89720;
+          padding: 20px;
+          text-align: center;
+          color: white;
+        }
+        .content {
+          padding: 20px;
+          background-color: #f8f8f8;
+        }
+        .info-box {
+          background-color: #fff;
+          border: 2px solid #F89720;
+          padding: 15px;
+          margin: 20px 0;
+          text-align: center;
+          border-radius: 8px;
+        }
+        .footer {
+          text-align: center;
+          padding: 20px;
+          font-size: 12px;
+          color: #777;
+        }
+        .warning {
+          background-color: #fff3cd;
+          border: 1px solid #ffeaa7;
+          padding: 15px;
+          border-radius: 4px;
+          margin: 20px 0;
+        }
+      </style>
+    </head>
+    <body>
+      <div class="container">
+        <div class="header">
+          <h1>Bottin des artistes DAM</h1>
+        </div>
+        <div class="content">
+          <h2>Bonjour ${firstName} ${lastName},</h2>
+          <p>Nous vous informons que votre mot de passe sur le Bottin des artistes DAM a été modifié par un administrateur.</p>
+          
+          <div class="info-box">
+            <h3>🔐 Mot de passe modifié</h3>
+            <p>Votre mot de passe a été mis à jour le ${new Date().toLocaleDateString('fr-CA')} à ${new Date().toLocaleTimeString('fr-CA')}.</p>
+          </div>
+          
+          <p><strong>Prochaines étapes :</strong></p>
+          <ol>
+            <li>Connectez-vous avec votre nouveau mot de passe</li>
+            <li>Si vous le souhaitez, vous pouvez modifier votre mot de passe dans vos paramètres de profil</li>
+          </ol>
+          
+          <div class="warning">
+            <strong>⚠️ Important :</strong>
+            <p>Si vous n'êtes pas à l'origine de cette demande de modification, contactez immédiatement l'équipe de DAM à info@diversiteartistique.org</p>
+          </div>
+          
+          <p>Si vous avez des questions concernant cette modification, n'hésitez pas à contacter l'équipe de DAM.</p>
+          
+          <p>Cordialement,<br>L'équipe de Diversité Artistique Montréal</p>
+        </div>
+        <div class="footer">
+          <p>&copy; ${new Date().getFullYear()} Diversité Artistique Montréal. Tous droits réservés.</p>
+          <p>Ce message a été envoyé automatiquement, merci de ne pas y répondre.</p>
+        </div>
+      </div>
+    </body>
+  </html>
+  `;
+
+  return sendEmail({
+    to,
+    subject,
+    html
+  });
+}
+
+/**
  * Fonction utilitaire pour convertir le HTML en texte brut
  */
 function convertHtmlToText(html: string): string {
