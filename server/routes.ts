@@ -853,10 +853,43 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Event routes
   app.get("/api/events", async (req, res) => {
     try {
+      console.log("📅 EVENTS - GET /api/events appelé");
       const limit = req.query.limit ? parseInt(req.query.limit as string) : undefined;
-      const events = await storage.getEvents(limit);
+      console.log("📅 EVENTS - Limit:", limit);
+      
+      // Utiliser SQL direct pour éviter les problèmes de compatibilité Drizzle
+      let query = `
+        SELECT id, title, description, location, event_date, image_url, organizer_id, created_at, registration_url
+        FROM events
+        ORDER BY event_date DESC
+      `;
+      
+      const params: any[] = [];
+      if (limit) {
+        query += ` LIMIT $1`;
+        params.push(limit);
+      }
+      
+      console.log("📅 EVENTS - Exécution de la requête SQL");
+      const result = await pool.query(query, params);
+      
+      const events = result.rows.map((row: any) => ({
+        id: row.id,
+        title: row.title,
+        description: row.description,
+        location: row.location,
+        eventDate: row.event_date,
+        imageUrl: row.image_url,
+        organizerId: row.organizer_id,
+        createdAt: row.created_at,
+        registrationUrl: row.registration_url
+      }));
+      
+      console.log("📅 EVENTS - Nombre d'événements trouvés:", events.length);
+      
       res.status(200).json(events);
-    } catch (error) {
+    } catch (error: any) {
+      console.error("Error in GET /api/events:", error);
       res.status(500).json({ message: "Internal server error" });
     }
   });

@@ -28,7 +28,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createUser(insertUser: InsertUser): Promise<User> {
-    const [user] = await db.insert(users).values([insertUser] as any).returning();
+    const [user] = await db.insert(users).values(insertUser).returning();
     return user;
   }
 
@@ -76,21 +76,80 @@ export class DatabaseStorage implements IStorage {
 
   // Event operations
   async getEvent(id: number): Promise<Event | undefined> {
-    const [event] = await db.select().from(events).where(eq(events.id, id));
-    return event;
+    try {
+      const [event] = await db.select().from(events).where(eq(events.id, id));
+      return event;
+    } catch (drizzleError) {
+      console.log('Drizzle échoué pour getEvent, utilisation du SQL direct');
+      
+      const query = `
+        SELECT id, title, description, location, event_date, image_url, organizer_id, created_at, registration_url
+        FROM events
+        WHERE id = $1
+      `;
+      
+      const result = await pool.query(query, [id]);
+      
+      if (result.rows.length === 0) {
+        return undefined;
+      }
+      
+      const row = result.rows[0];
+      return {
+        id: row.id,
+        title: row.title,
+        description: row.description,
+        location: row.location,
+        eventDate: new Date(row.event_date),
+        imageUrl: row.image_url,
+        organizerId: row.organizer_id,
+        createdAt: new Date(row.created_at),
+        registrationUrl: row.registration_url
+      } as Event;
+    }
   }
 
   async getEvents(limit?: number): Promise<Event[]> {
-    const query = db
-      .select()
-      .from(events)
-      .orderBy(desc(events.eventDate));
-    
-    if (limit) {
-      return query.limit(limit);
+    try {
+      const query = db
+        .select()
+        .from(events)
+        .orderBy(desc(events.eventDate));
+      
+      if (limit) {
+        return query.limit(limit);
+      }
+      
+      return query;
+    } catch (drizzleError) {
+      console.log('Drizzle échoué pour getEvents, utilisation du SQL direct');
+      
+      let query = `
+        SELECT id, title, description, location, event_date, image_url, organizer_id, created_at, registration_url
+        FROM events
+        ORDER BY event_date DESC
+      `;
+      
+      const params: any[] = [];
+      if (limit) {
+        query += ` LIMIT $1`;
+        params.push(limit);
+      }
+      
+      const result = await pool.query(query, params);
+      
+      return result.rows.map((row: any) => ({
+        id: row.id,
+        title: row.title,
+        description: row.description,
+        location: row.location,
+        eventDate: new Date(row.event_date),
+        imageUrl: row.image_url,
+        organizerId: row.organizer_id,
+        createdAt: new Date(row.created_at),
+        registrationUrl: row.registration_url
+      })) as Event[];
     }
-    
-    return query;
   }
 
   async createEvent(event: InsertEvent): Promise<Event> {
