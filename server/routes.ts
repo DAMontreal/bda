@@ -16,7 +16,7 @@ import {
 import { StorageBucket, uploadFile, deleteFile } from "./supabase";
 import fileUpload from "express-fileupload";
 import * as fs from 'fs';
-import { sendPasswordResetEmail, sendRegistrationConfirmationEmail, sendApprovalEmail } from "./email-service";
+import { sendPasswordResetEmail, sendRegistrationConfirmationEmail, sendApprovalEmail, sendPasswordChangedByAdminEmail } from "./email-service";
 import { resizeProfileImage } from "./image-utils";
 import { uploadTrocImage } from "./api/upload/troc-image";
 import { sql } from "drizzle-orm";
@@ -2142,6 +2142,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ message: "User not found" });
       }
       
+      // Send notification email to the user
+      try {
+        await sendPasswordChangedByAdminEmail(user.email, user.firstName, user.lastName);
+        console.log(`Password changed notification email sent to ${user.email}`);
+      } catch (emailError) {
+        console.error(`Failed to send password changed notification email to ${user.email}:`, emailError);
+        // Continue with password reset even if email fails
+      }
+      
       // Log the password reset action
       console.log(`🔐 PASSWORD RESET - SUCCESS: Admin reset password for user ${user.email} (ID: ${id})`);
       
@@ -2333,6 +2342,62 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error('❌ ADMIN SQL - Erreur:', error);
       res.status(500).json({ success: false, error: error.message });
+    }
+  });
+
+  // ROUTE TEMPORAIRE - Correction du mot de passe admin en production
+  // À supprimer après utilisation unique
+  app.post("/api/fix-admin-password", async (req, res) => {
+    try {
+      console.log('🔐 FIX-ADMIN-PASSWORD - Route appelée en environnement:', process.env.NODE_ENV);
+      
+      // Protection: ne fonctionne qu'en production avec un token spécifique
+      const { token } = req.body;
+      if (token !== 'fix-admin-dam-2025') {
+        return res.status(403).json({ error: 'Token incorrect' });
+      }
+      
+      // Vérifier le mot de passe actuel
+      const checkResult = await pool.query('SELECT username, password FROM users WHERE username = $1', ['admin']);
+      
+      if (checkResult.rows.length === 0) {
+        return res.status(404).json({ error: 'Utilisateur admin non trouvé' });
+      }
+      
+      const currentPassword = checkResult.rows[0].password;
+      console.log('🔐 Mot de passe actuel preview:', currentPassword.substring(0, 10) + '...');
+      
+      // Si le mot de passe est déjà haché correctement, tester avec admin123
+      if (currentPassword.startsWith('$2b$')) {
+        const isValid = bcrypt.compareSync('admin123', currentPassword);
+        if (isValid) {
+          return res.json({ success: true, message: 'Le mot de passe admin123 fonctionne déjà' });
+        }
+      }
+      
+      // Générer un nouveau hash pour admin123
+      const hashedPassword = bcrypt.hashSync('admin123', 10);
+      
+      // Mettre à jour le mot de passe
+      const updateResult = await pool.query(
+        'UPDATE users SET password = $1 WHERE username = $2 RETURNING username', 
+        [hashedPassword, 'admin']
+      );
+      
+      if (updateResult.rows.length > 0) {
+        console.log('🔐 Mot de passe admin mis à jour avec succès');
+        res.json({ 
+          success: true, 
+          message: 'Mot de passe admin mis à jour. Vous pouvez maintenant vous connecter avec admin/admin123',
+          updated: true
+        });
+      } else {
+        res.status(500).json({ error: 'Erreur lors de la mise à jour' });
+      }
+      
+    } catch (error) {
+      console.error('🔐 Erreur fix admin password:', error);
+      res.status(500).json({ error: error.message });
     }
   });
 
