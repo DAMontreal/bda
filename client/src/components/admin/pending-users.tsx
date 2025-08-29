@@ -50,7 +50,7 @@ const PendingUsers = () => {
   // Reject user mutation
   const rejectUserMutation = useMutation({
     mutationFn: async (userId: number) => {
-      return apiRequest("DELETE", `/api/users/${userId}`, undefined);
+      return apiRequest("DELETE", `/api/admin/users/${userId}`);
     },
     onSuccess: () => {
       // Invalider toutes les requêtes concernant les utilisateurs
