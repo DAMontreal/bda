@@ -14,6 +14,7 @@ export interface IStorage {
   getUserByEmail(email: string): Promise<User | undefined>;
   createUser(user: InsertUser): Promise<User>;
   updateUser(id: number, userData: Partial<User>): Promise<User | undefined>;
+  deleteUser(id: number): Promise<boolean>;
   getUsers(options?: { isApproved?: boolean }): Promise<User[]>;
 
   // ProfileMedia operations
@@ -127,7 +128,7 @@ export class MemStorage implements IStorage {
       disciplines: insertUser.disciplines || null,
       location: insertUser.location || null,
       website: insertUser.website || null,
-      socialMedia: insertUser.socialMedia || null,
+      socialMedia: insertUser.socialMedia as User['socialMedia'] || null,
       cv: insertUser.cv || null,
       id, 
       isApproved: false, 
@@ -145,6 +146,24 @@ export class MemStorage implements IStorage {
     const updatedUser = { ...user, ...userData };
     this.users.set(id, updatedUser);
     return updatedUser;
+  }
+
+  async deleteUser(id: number): Promise<boolean> {
+    // Delete user's related data first
+    const userEvents = Array.from(this.events.values()).filter(event => event.organizerId === id);
+    userEvents.forEach(event => this.events.delete(event.id));
+    
+    const userTrocAds = Array.from(this.trocAds.values()).filter(ad => ad.userId === id);
+    userTrocAds.forEach(ad => this.trocAds.delete(ad.id));
+    
+    const userMedia = Array.from(this.profileMedia.values()).filter(media => media.userId === id);
+    userMedia.forEach(media => this.profileMedia.delete(media.id));
+    
+    const userMessages = Array.from(this.messages.values()).filter(msg => msg.senderId === id || msg.receiverId === id);
+    userMessages.forEach(msg => this.messages.delete(msg.id));
+    
+    // Finally delete the user
+    return this.users.delete(id);
   }
 
   async getUsers(options?: { isApproved?: boolean }): Promise<User[]> {

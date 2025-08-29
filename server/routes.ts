@@ -2161,6 +2161,94 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Admin: Delete user
+  app.delete("/api/admin/users/:id", requireAdmin, async (req, res) => {
+    try {
+      console.log('🗑️ USER DELETE - Request received');
+      console.log('🗑️ Session info:', {
+        userId: req.session.userId,
+        isAdmin: req.session.isAdmin,
+        sessionId: req.sessionID
+      });
+      
+      const id = parseInt(req.params.id);
+      
+      console.log('🗑️ USER DELETE - Target user ID:', id);
+      
+      if (isNaN(id)) {
+        return res.status(400).json({ message: "Invalid user ID" });
+      }
+      
+      // Prevent admin from deleting themselves
+      if (id === req.session.userId) {
+        return res.status(400).json({ message: "Cannot delete your own account" });
+      }
+      
+      const user = await storage.getUser(id);
+      
+      if (!user) {
+        return res.status(404).json({ message: "User not found" });
+      }
+      
+      console.log('🗑️ USER DELETE - Found user:', user.email);
+      
+      // Prevent deletion of other admins
+      if (user.isAdmin) {
+        return res.status(403).json({ message: "Cannot delete admin users" });
+      }
+      
+      // Delete all related data first (messages, events, troc ads, media)
+      try {
+        // Delete user's messages
+        await pool.query('DELETE FROM messages WHERE sender_id = $1 OR receiver_id = $1', [id]);
+        console.log('🗑️ USER DELETE - Messages deleted');
+        
+        // Delete user's events
+        await pool.query('DELETE FROM events WHERE organizer_id = $1', [id]);
+        console.log('🗑️ USER DELETE - Events deleted');
+        
+        // Delete user's troc ads
+        await pool.query('DELETE FROM troc_ads WHERE user_id = $1', [id]);
+        console.log('🗑️ USER DELETE - Troc ads deleted');
+        
+        // Delete user's profile media
+        await pool.query('DELETE FROM profile_media WHERE user_id = $1', [id]);
+        console.log('🗑️ USER DELETE - Profile media deleted');
+        
+        // Finally delete the user
+        const deleteResult = await pool.query('DELETE FROM users WHERE id = $1 RETURNING email', [id]);
+        
+        if (deleteResult.rows.length > 0) {
+          console.log(`🗑️ USER DELETE - SUCCESS: Admin deleted user ${user.email} (ID: ${id})`);
+          res.status(200).json({ message: "User deleted successfully" });
+        } else {
+          console.log('🗑️ USER DELETE - No user deleted (may have been already deleted)');
+          res.status(404).json({ message: "User not found" });
+        }
+        
+      } catch (deleteError) {
+        console.error('🗑️ USER DELETE - Error deleting related data:', deleteError);
+        // Try to delete just the user if cascade delete fails
+        try {
+          const deleteResult = await pool.query('DELETE FROM users WHERE id = $1 RETURNING email', [id]);
+          if (deleteResult.rows.length > 0) {
+            console.log(`🗑️ USER DELETE - SUCCESS (partial): User ${user.email} deleted (ID: ${id})`);
+            res.status(200).json({ message: "User deleted successfully (some related data may remain)" });
+          } else {
+            res.status(404).json({ message: "User not found" });
+          }
+        } catch (finalError) {
+          console.error('🗑️ USER DELETE - Final deletion failed:', finalError);
+          res.status(500).json({ message: "Failed to delete user" });
+        }
+      }
+      
+    } catch (error) {
+      console.error("🗑️ USER DELETE - ERROR:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
   // Route admin pour gérer les annonces TROC
   app.get("/api/admin/troc", requireAdmin, async (req, res) => {
     console.log('🔧 ADMIN TROC - GET appelé');
@@ -2272,6 +2360,49 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
     } catch (error) {
       console.error('🔧 ADMIN TROC - Erreur générale:', error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  // Admin route to delete user
+  app.delete("/api/admin/users/:id", requireAdmin, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      
+      if (isNaN(id)) {
+        return res.status(400).json({ message: "Invalid user ID" });
+      }
+      
+      // Check if user exists
+      const user = await storage.getUser(id);
+      if (!user) {
+        return res.status(404).json({ message: "User not found" });
+      }
+      
+      // Prevent deleting admin users (safety check)
+      if (user.isAdmin) {
+        return res.status(403).json({ message: "Cannot delete admin users" });
+      }
+      
+      // Prevent self-deletion
+      if (req.session.userId === id) {
+        return res.status(403).json({ message: "Cannot delete your own account" });
+      }
+      
+      console.log(`🗑️ Admin ${req.session.userId} deleting user ${id} (${user.firstName} ${user.lastName})`);
+      
+      // Delete the user and all related data
+      const success = await storage.deleteUser(id);
+      
+      if (!success) {
+        return res.status(500).json({ message: "Failed to delete user" });
+      }
+      
+      console.log(`✅ User ${id} deleted successfully`);
+      res.status(200).json({ message: "User deleted successfully" });
+      
+    } catch (error: any) {
+      console.error("Error deleting user:", error);
       res.status(500).json({ message: "Internal server error" });
     }
   });

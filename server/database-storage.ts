@@ -41,6 +41,23 @@ export class DatabaseStorage implements IStorage {
     return updatedUser;
   }
 
+  async deleteUser(id: number): Promise<boolean> {
+    try {
+      // Delete user's related data first
+      await db.delete(profileMedia).where(eq(profileMedia.userId, id));
+      await db.delete(messages).where(or(eq(messages.senderId, id), eq(messages.receiverId, id)));
+      await db.delete(events).where(eq(events.organizerId, id));
+      await db.delete(trocAds).where(eq(trocAds.userId, id));
+      
+      // Finally delete the user
+      const result = await db.delete(users).where(eq(users.id, id));
+      return true;
+    } catch (error) {
+      console.error('Error deleting user:', error);
+      return false;
+    }
+  }
+
   async getUsers(options?: { isApproved?: boolean }): Promise<User[]> {
     if (options?.isApproved !== undefined) {
       return db
