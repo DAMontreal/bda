@@ -377,6 +377,17 @@ const ArtistProfile = () => {
             <p className="text-gray-500">Aucun événement organisé par cet artiste.</p>
           </div>
         )}
+        
+        {/* Bouton retour aux artistes */}
+        <div className="mt-8 text-center">
+          <Link href="/artists">
+            <Button 
+              className="bg-[#F89720] hover:bg-[#E67E00] text-white px-8 py-3 rounded-[25px] font-medium"
+            >
+              ← Retour aux Artistes
+            </Button>
+          </Link>
+        </div>
       </div>
     </div>
   );
