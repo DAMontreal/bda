@@ -15,11 +15,18 @@ import {
   FaGlobe,
   FaLinkedin,
 } from "react-icons/fa";
-import { BadgeCheck, Mail, Download, MapPin, Calendar } from "lucide-react";
+import { BadgeCheck, Mail, Download, MapPin, Calendar, Play, ExternalLink } from "lucide-react";
 import { getDisciplineLabel, formatDate } from "@/lib/utils";
 import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
 import FormattedText from "@/components/ui/formatted-text";
+
+// Utility function to extract YouTube video ID
+const getYouTubeVideoId = (url: string): string | null => {
+  const regex = /(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/)([^"&?\/\s]{11})/;
+  const match = url.match(regex);
+  return match ? match[1] : null;
+};
 
 const ArtistProfile = () => {
   const { id } = useParams();
@@ -254,24 +261,60 @@ const ArtistProfile = () => {
         {videos.length > 0 && (
           <TabsContent value="videos">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              {videos.map((video) => (
-                <div key={video.id} className="bg-white rounded-lg shadow-md overflow-hidden">
-                  <div className="relative pt-[56.25%]">
-                    <iframe
-                      className="absolute top-0 left-0 w-full h-full"
-                      src={video.url.replace('watch?v=', 'embed/')}
-                      title={video.title}
-                      frameBorder="0"
-                      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                      allowFullScreen
-                    ></iframe>
+              {videos.map((video) => {
+                const videoId = getYouTubeVideoId(video.url);
+                const thumbnailUrl = videoId 
+                  ? `https://img.youtube.com/vi/${videoId}/hqdefault.jpg`
+                  : 'https://via.placeholder.com/320x180/f0f0f0/666666?text=Vidéo';
+                
+                return (
+                  <div key={video.id} className="bg-white rounded-lg shadow-md overflow-hidden">
+                    <div className="relative">
+                      <div className="relative pt-[56.25%] bg-gray-100">
+                        <img 
+                          src={thumbnailUrl}
+                          alt={video.title}
+                          className="absolute top-0 left-0 w-full h-full object-cover"
+                        />
+                        <div className="absolute inset-0 flex items-center justify-center">
+                          <a 
+                            href={video.url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="bg-red-600 hover:bg-red-700 text-white rounded-full p-4 shadow-lg transition-all transform hover:scale-110"
+                            title="Ouvrir la vidéo sur YouTube"
+                          >
+                            <Play className="h-8 w-8 ml-1" fill="currentColor" />
+                          </a>
+                        </div>
+                        <div className="absolute top-2 right-2">
+                          <a 
+                            href={video.url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="bg-black bg-opacity-50 text-white p-1 rounded"
+                            title="Ouvrir sur YouTube"
+                          >
+                            <ExternalLink className="h-4 w-4" />
+                          </a>
+                        </div>
+                      </div>
+                    </div>
+                    <div className="p-4">
+                      <h3 className="font-bold mb-2">{video.title}</h3>
+                      {video.description && <FormattedText text={video.description} className="text-gray-600 text-sm mb-3" />}
+                      <a 
+                        href={video.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center text-[#F89720] hover:text-[#E67E00] text-sm font-medium"
+                      >
+                        Voir sur YouTube <ExternalLink className="ml-1 h-4 w-4" />
+                      </a>
+                    </div>
                   </div>
-                  <div className="p-4">
-                    <h3 className="font-bold">{video.title}</h3>
-                    {video.description && <FormattedText text={video.description} className="text-gray-600 text-sm" />}
-                  </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </TabsContent>
         )}
