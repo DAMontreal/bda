@@ -5,7 +5,7 @@ import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
-import { Search, UserX, ShieldCheck, Shield, UserCog, KeyRound } from "lucide-react";
+import { Search, UserX, ShieldCheck, Shield, UserCog, KeyRound, Trash2 } from "lucide-react";
 import { User } from "@shared/schema";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -94,6 +94,27 @@ const UserManagement = () => {
     },
   });
 
+  // Delete user mutation
+  const deleteUserMutation = useMutation({
+    mutationFn: async (userId: number) => {
+      return apiRequest("DELETE", `/api/admin/users/${userId}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/users"] });
+      toast({
+        title: "Utilisateur supprimé",
+        description: "L'utilisateur a été supprimé avec succès",
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        variant: "destructive",
+        title: "Erreur",
+        description: error.message || "Une erreur est survenue lors de la suppression",
+      });
+    },
+  });
+
   // Handle admin toggle
   const handleToggleAdmin = (userId: number, currentStatus: boolean) => {
     const action = currentStatus ? "retirer les droits d'administrateur de" : "faire";
@@ -106,6 +127,13 @@ const UserManagement = () => {
   const handleDisableUser = (userId: number) => {
     if (confirm("Êtes-vous sûr de vouloir désactiver cet utilisateur? Il ne pourra plus se connecter.")) {
       disableUserMutation.mutate(userId);
+    }
+  };
+
+  // Handle user delete
+  const handleDeleteUser = (userId: number, userName: string) => {
+    if (confirm(`Êtes-vous sûr de vouloir SUPPRIMER DÉFINITIVEMENT l'utilisateur ${userName}? Cette action est irréversible et supprimera toutes ses données (profil, messages, événements, annonces).`)) {
+      deleteUserMutation.mutate(userId);
     }
   };
   
@@ -265,9 +293,19 @@ const UserManagement = () => {
                     size="icon"
                     title="Désactiver l'utilisateur"
                     onClick={() => handleDisableUser(user.id)}
-                    className="text-red-600 hover:text-red-800"
+                    className="text-orange-600 hover:text-orange-800"
                   >
                     <UserX className="h-5 w-5" />
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    title="Supprimer définitivement l'utilisateur"
+                    onClick={() => handleDeleteUser(user.id, `${user.firstName} ${user.lastName}`)}
+                    className="text-red-600 hover:text-red-800"
+                    disabled={user.isAdmin}
+                  >
+                    <Trash2 className="h-5 w-5" />
                   </Button>
                 </div>
               </div>
